@@ -1,7 +1,8 @@
-# openlldp 0.4alpha as illumos-extra builds it for the platform (openlldp/Makefile): 32 bits, its three patches, CFLAGS
-# for CTF (-gdwarf-2, no inlining); lldpd and lldpneighbors installed stripped by the platform's /usr/sbin/install, with
-# illumos-extra's SMF manifest, then CTF from their DWARF by tools/make-ctf with ctfconvert -m (the programs are
-# stripped already). Their proto area has lib/svc/manifest/network and usr/sbin already; they are made here.
+# openlldp 0.4alpha as illumos-extra builds it for the platform (openlldp/Makefile): 32 bits, its patches (six at
+# release-20261023), CFLAGS for CTF (-gdwarf-2, no inlining); lldpd and lldpneighbors installed stripped by the
+# platform's /usr/sbin/install, with illumos-extra's SMF manifest, then CTF from their DWARF by tools/make-ctf with
+# ctfconvert -m (the programs are stripped already). Their proto area has lib/svc/manifest/network and usr/sbin
+# already; they are made here.
 { mkAutoconf, ctfconvert, cleanEnv }:
 
 mkAutoconf {
