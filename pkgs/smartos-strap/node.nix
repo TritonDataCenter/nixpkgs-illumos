@@ -3,7 +3,9 @@
 # (libsunw_crypto/libsunw_ssl) and zlib; host tools built by a separate host toolset through node.js/wrapper.c
 # (which turns -lsunw_crypto/-lsunw_ssl into -lcrypto/-lssl for the host); installed by its own `make install` into
 # <strap>/usr/node/0.10, plus node_modules/platform_node_version.js from node.js/genversionjs.c and the manuals moved
-# up from share/man.
+# up from share/man. The roots node compiles in (src/node_root_certs.h) are written by node.js/mkrootcerts from the
+# Mozilla bundle illumos-extra ships in ca-certificates, as its Makefile does before the build, so that the two are the
+# same.
 #
 # Makefile.targ's flow: configure and make under `env -`, configure given AUTOCONF_ENV and make the same variables
 # on its command line (OVERRIDES). The strap directories are this package's output and the libz and openssl1x
@@ -63,7 +65,10 @@ stdenv.mkDerivation {
   pname = if strap then "smartos-strap-node" else "smartos-extra-node";
   version = "0.10.26";
 
-  src = illumosExtraSrc [ "node.js" ];
+  src = illumosExtraSrc [
+    "node.js"
+    "ca-certificates"
+  ];
 
   nativeBuildInputs = [
     python27
@@ -77,6 +82,7 @@ stdenv.mkDerivation {
     mkdir -p ie
     cp $src/install.subr ie/
     cp -r $src/node.js ie/node.js
+    cp -r $src/ca-certificates ie/ca-certificates
     chmod -R u+w ie
     cd ie/node.js
     mkdir .unpack32
@@ -89,6 +95,11 @@ stdenv.mkDerivation {
     rmdir .unpack32
     chmod 755 ${d}/configure
     touch ${d}/configure
+    # ROOT_CERTS_H; one string a certificate, checked against the bundle
+    sh ./mkrootcerts ../ca-certificates/cacert.pem >${d}/src/node_root_certs.h
+    certs=$(grep -c '^-----BEGIN CERTIFICATE-----$' ../ca-certificates/cacert.pem)
+    test "$(grep -c '^"-----END CERTIFICATE-----",$' ${d}/src/node_root_certs.h)" = "$certs"
+    echo "node_root_certs.h: $certs certificates from ca-certificates/cacert.pem"
     runHook postUnpack
   '';
 
@@ -139,6 +150,10 @@ stdenv.mkDerivation {
     rm -rf $nodeRoot/man
     mv $nodeRoot/share/man $nodeRoot/
     remove-references-to -t ${python27} $nodeRoot/include/node/config.gypi $nodeRoot/bin/node
+    # the binary holds the bundle's roots, not those of node's own src/node_root_certs.h: the last certificate's
+    # first line of base64
+    last=$(awk '/^-----BEGIN CERTIFICATE-----$/ { getline; l = $0 } END { print l }' ../ca-certificates/cacert.pem)
+    grep -aF -- "$last" $nodeRoot/bin/node >/dev/null
     runHook postInstall
   '';
 
