@@ -1,13 +1,13 @@
 {
   "illumos-extra": {
-    "date": 1788374539,
-    "hash": "sha256-LHv5QyRxAb1dOeKOTbWb1UbDvKE2+OyE0GLjfD5vM0Q=",
-    "rev": "5850d8e9f17443bbe42eb24739c8f3c2f268ae60"
+    "date": 1792685984,
+    "hash": "sha256-iQbCVnykg/SgkzipM+aXN5HgnsxtMRwr4P/W6NjEres=",
+    "rev": "6c3515e2148fb335324a2f4866d540d81fefdc73"
   },
   "illumos-joyent": {
-    "date": 1789152667,
-    "hash": "sha256-HgM/5VCIMOkl8r4zjaF+3laAhQMz6N3OBrOjzVaenHg=",
-    "rev": "4012001854b4dd25a6190871dfe4d1cdda489ed9"
+    "date": 1792686489,
+    "hash": "sha256-eZI0SmhIB17jec/Yn6CjAk2RrnTGGLkHutRc38rrZrE=",
+    "rev": "37d708fdd3cde1a74b1184077a9e768fe3a62aae"
   },
   "kbmd": {
     "date": 1745358594,
@@ -57,9 +57,16 @@
     }
   },
   "smartos-live": {
-    "date": 1788361588,
-    "hash": "sha256-arryUP946sA4UMTJY8rbiQRxHi4TEaAMpk+E966Zmf0=",
-    "rev": "148c3689faede56d529a44469fdb989d24b29aa1"
+    "date": 1791829373,
+    "hash": "sha256-FCyKERDDiiyUSSkttg7GPqOlX8R6VAY0LkFkP0bF5ME=",
+    "rev": "fa5501392f4b9f4c5b4d31cc30e4beaa5d4c9f07",
+    "submodules": {
+      "deps/eng": {
+        "hash": "sha256-abtEEDw4pUOXc8n+kisY+PmVKGeknCIFVQceC+Esx8A=",
+        "rev": "4a6e158d84d7d83c63c1c166e258a43f20c0287c",
+        "url": "https://github.com/tritondatacenter/eng.git"
+      }
+    }
   },
   "ur-agent": {
     "date": 1745358574,
