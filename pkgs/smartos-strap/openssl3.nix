@@ -1,4 +1,4 @@
-# OpenSSL 3.5.8 as illumos-extra builds it for the strap (openssl3/Makefile): its one patch, which adds the
+# OpenSSL 3.5.9 as illumos-extra builds it for the strap (openssl3/Makefile): its one patch, which adds the
 # smartos-x86-gcc and smartos64-x86_64-gcc targets (library names with a -smartos suffix, every exported symbol
 # prefixed sunw_ through sunw_prefix.h and the perlasm changes); 32 and 64 bits; checked with
 # openssl3/tools/checksyms.bash (no unprefixed symbol exported); installed by openssl3/install-sfw{,-64}: the
@@ -40,7 +40,7 @@
 }:
 
 let
-  version = "3.5.8";
+  version = "3.5.9";
   ver = "openssl-${version}";
   # the build directories' suffix (Makefile.defs VER.32, VER.64)
   suffix = lib.optionalString strap "strap";
