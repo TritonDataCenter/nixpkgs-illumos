@@ -40,7 +40,8 @@
 }:
 
 let
-  ver = "openssl-3.5.8";
+  version = "3.5.8";
+  ver = "openssl-${version}";
   # the build directories' suffix (Makefile.defs VER.32, VER.64)
   suffix = lib.optionalString strap "strap";
   # the directories that stand for their DESTDIR: this package's output, then (non-strap) the illumos proto area
@@ -52,7 +53,7 @@ let
 in
 stdenv.mkDerivation {
   pname = if strap then "smartos-strap-openssl3" else "smartos-extra-openssl3";
-  version = "3.5.8";
+  inherit version;
 
   src = illumosExtraSrc [ "openssl3" ];
 
