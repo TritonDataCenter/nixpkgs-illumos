@@ -252,6 +252,7 @@ lib.makeScope newScope (self: {
     "bash"
     "bind"
     "bzip2"
+    "ca-certificates"
     "coreutils"
     "cpp"
     "curl"

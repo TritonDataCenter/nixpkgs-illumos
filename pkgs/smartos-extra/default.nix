@@ -136,6 +136,7 @@ lib.makeScope newScope (self: {
     inherit (self) illumosProto;
   };
   bzip2 = smartos-strap.bzip2.override { strap = false; };
+  ca-certificates = self.callPackage ./ca-certificates.nix { };
   cpp = smartos-strap.cpp.override {
     strap = false;
     inherit (self) illumosProto;
