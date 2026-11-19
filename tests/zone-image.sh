@@ -420,12 +420,13 @@ rm -f "$R/etc/nix/nix.local.conf"
 
 # --- 4. /etc/nixos evaluates to the shipped system ------------------------------------------------------------
 
-want=$(nix-store -q --deriver "$system")
-got=$(cd "$R/etc/nixos" && nix-instantiate ./system.nix 2>"$tmp/eval.log")
-if [ "$got" = "$want" ]; then
+# by output path: a store that got the system by `nix copy` or a substituter may not record its deriver
+drv=$(cd "$R/etc/nixos" && nix-instantiate ./system.nix 2>"$tmp/eval.log")
+got=$([ -n "$drv" ] && nix-store -q --outputs "$drv")
+if [ -n "$got" ] && [ "$got" = "$system" ]; then
 	ok "/etc/nixos/system.nix evaluates to the shipped system"
 else
-	bad "/etc/nixos/system.nix evaluates to ${got:-nothing}, the image ships $want's output"; tail -3 "$tmp/eval.log"
+	bad "/etc/nixos/system.nix evaluates to ${got:-nothing} (${drv:-no derivation}), the image ships $system"; tail -3 "$tmp/eval.log"
 fi
 
 finish
