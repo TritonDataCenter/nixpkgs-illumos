@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 #
-# build-smartos [--flavor default|debug] [--pkgs FILE] [OUTPUT-DIR]: a SmartOS platform and its USB image from this
-# checkout, in one step, as root on a host that can make them (a builder-brand zone with lofi, UFS and pcfs mounts):
+# build-smartos [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [OUTPUT-DIR]: a SmartOS platform and its USB
+# image from this checkout, in one step, as root on a host that can make them (a builder-brand zone with lofi, UFS and pcfs mounts):
 #   - the builder tools of the flavor (pkgs/smartos-live: smartos-live, or smartos-live-debug) built from the package
 #     set FILE (default this checkout's smartos.nix), kept as OUTPUT-DIR/builder-tools-FLAVOR;
 #   - the platform, OUTPUT-DIR/platform-STAMP (build-image), and its USB image, OUTPUT-DIR/platform-STAMP.usb.gz
 #     (build-usb, with their defaults: the console on ttya).
-# OUTPUT-DIR defaults to /var/tmp/build-smartos.
+# OUTPUT-DIR defaults to /var/tmp/build-smartos. --checkout DIR is the checkout the build is of, when it is not this
+# one: smartos-live's, when smartos-live is the entry point (its default.nix as FILE).
 #
 # The build stamp says what was built (pkgs/smartos-live/identity.nix): a clean checkout's is its commit's time (a
 # release's, its release's), one with changed tracked files is dirty and stamped with the time of the build. Nix
@@ -18,7 +19,7 @@ set -euo pipefail
 top="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-    echo "usage: $0 [--flavor default|debug] [--pkgs FILE] [OUTPUT-DIR]" >&2
+    echo "usage: $0 [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [OUTPUT-DIR]" >&2
     exit 2
 }
 fail() {
@@ -26,11 +27,12 @@ fail() {
     exit 1
 }
 
-flavor=default pkgs=$top/smartos.nix
+flavor=default pkgs=$top/smartos.nix checkout=$top
 while [ $# -gt 0 ]; do
     case $1 in
         --flavor) [ $# -ge 2 ] || usage; flavor=$2; shift 2 ;;
         --pkgs) [ $# -ge 2 ] || usage; pkgs=$2; shift 2 ;;
+        --checkout) [ $# -ge 2 ] || usage; checkout=$2; shift 2 ;;
         -*) usage ;;
         *) break ;;
     esac
@@ -44,14 +46,14 @@ case $flavor in
 esac
 
 state=unknown
-if git -C "$top" rev-parse --git-dir >/dev/null 2>&1; then
-    untracked=$(git -C "$top" ls-files --others --exclude-standard)
+if git -C "$checkout" rev-parse --git-dir >/dev/null 2>&1; then
+    untracked=$(git -C "$checkout" ls-files --others --exclude-standard)
     if [ -n "$untracked" ]; then
         echo "build-smartos: untracked files, which the build would use but its stamp could not tell:" >&2
         echo "$untracked" | head -20 | sed 's/^/    /' >&2
         fail "add them to git (or to .gitignore), or remove them"
     fi
-    if git -C "$top" diff --quiet HEAD --; then state=clean; else state=dirty; fi
+    if git -C "$checkout" diff --quiet HEAD --; then state=clean; else state=dirty; fi
 fi
 [ "$(id -u)" = 0 ] || fail "build-image and build-usb need root"
 

@@ -6,7 +6,8 @@
 # root.password; OUTPUT/platform-STAMP.usb.gz). Checks: a clean tree builds the default flavor from the repository's
 # smartos.nix into the output directory given, image then USB image, and says what it made; --flavor debug and
 # --pkgs FILE reach nix-build; a changed tracked file still builds, and is said to be dirty; an untracked file stops
-# it before anything is built, and an ignored one does not; a failing build-image stops it before build-usb; a
+# it before anything is built, and an ignored one does not; with --checkout DIR, DIR's state is the one told and its
+# untracked files refuse; a failing build-image stops it before build-usb; a
 # flavor that is not one, or a stray argument, is refused.
 #
 # usage: build-smartos.sh   (as root, as build-smartos needs; git on PATH)
@@ -126,6 +127,26 @@ else
     bad "an ignored file"; show ignored
 fi
 rm -r scratch
+
+# --checkout: another repository (smartos-live's, when it is the entry point) is the one whose state is told
+git init -q -b main "$tmp/other"
+echo x >"$tmp/other/f" && git -C "$tmp/other" add f && git -C "$tmp/other" commit -q -m start
+echo changed >>smartos.nix
+if run checkout --checkout "$tmp/other" "$out" && grep -q "build-usb" "$tmp/checkout.calls" &&
+    grep -q "clean checkout" "$tmp/checkout.out"; then
+    ok "--checkout DIR: DIR's state is told (clean), not the overlay's (dirty)"
+else
+    bad "--checkout DIR's state"; show checkout
+fi
+git checkout -q -- smartos.nix
+echo new >"$tmp/other/untracked.c"
+if ! run checkoutuntracked --checkout "$tmp/other" "$out" && [ ! -s "$tmp/checkoutuntracked.calls" ] &&
+    grep -q "untracked.c" "$tmp/checkoutuntracked.out"; then
+    ok "--checkout DIR: an untracked file in DIR is refused before anything is built"
+else
+    bad "--checkout DIR's untracked file"; show checkoutuntracked
+fi
+rm "$tmp/other/untracked.c"
 
 if ! FAKE_IMAGE_FAIL=1 run imagefail "$out" && grep -q "build-image" "$tmp/imagefail.calls" &&
     ! grep -q "build-usb" "$tmp/imagefail.calls"; then
