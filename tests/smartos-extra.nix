@@ -150,7 +150,7 @@ in
       printf("\n");
       return 0;
     }
-  '' "3.5.8 ba7816bf";
+  '' "3.5.9 ba7816bf";
 
   bash = compare "bash" extra.bash "^usr/bin/bash$|^usr/share/man/man1/bash\\.1$";
   bash-use = pkgs.runCommand "smartos-extra-bash-run" { } ''
@@ -434,10 +434,10 @@ in
     /usr/bin/ldd $c | tee ldd
     grep "libcurl.so.4 =>.*${extra.curl}/" ldd >/dev/null
     $c --version | head -1 | tee out
-    grep "^curl 8\\.22\\.0 .* OpenSSL/3\\.5\\.8 zlib/1\\.3\\.1 libidn2/2\\.3\\.4" out >/dev/null
+    grep "^curl 8\\.22\\.0 .* OpenSSL/3\\.5\\.9 zlib/1\\.3\\.1 libidn2/2\\.3\\.4" out >/dev/null
     echo hello >f
     $c -s file://$PWD/f | grep -x hello >/dev/null
-    echo "ok   curl 8.22.0 with OpenSSL 3.5.8, zlib and libidn2 fetches a file: URL"
+    echo "ok   curl 8.22.0 with OpenSSL 3.5.9, zlib and libidn2 fetches a file: URL"
     touch $out
   '';
 
@@ -531,9 +531,9 @@ in
   openssh-use = pkgs.runCommand "smartos-extra-openssh-run" { } ''
     export LD_LIBRARY_PATH=${extra.openssl3}/lib:${extra.libz}/lib
     ${extra.openssh}/usr/bin/ssh -V 2>&1 | tee out
-    grep "^OpenSSH_10\\.5p1, OpenSSL 3\\.5\\.8 " out >/dev/null
+    grep "^OpenSSH_10\\.6p2, OpenSSL 3\\.5\\.9 " out >/dev/null
     /usr/bin/elfdump -c ${extra.openssh}/usr/lib/ssh/sshd | grep "sh_name: \\.SUNW_ctf$" >/dev/null
-    echo "ok   ssh 10.5p1 with OpenSSL 3.5.8; sshd has CTF"
+    echo "ok   ssh 10.6p2 with OpenSSL 3.5.9; sshd has CTF"
     touch $out
   '';
 

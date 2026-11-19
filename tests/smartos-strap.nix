@@ -151,7 +151,7 @@ in
       printf("\n");
       return 0;
     }
-  '' "3.5.8 ba7816bf";
+  '' "3.5.9 ba7816bf";
 
   nss-nspr = compare "nss-nspr" strap.nss-nspr "^usr/lib/mps/|^usr/include/mps/|^usr/bin/(amd64/)?certutil$|^usr/share/man/man1/certutil\\.1$";
   # certutil makes a new database and lists it: NSPR, NSS, softoken and sqlite at work
