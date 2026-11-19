@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
-# build-smartos [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [OUTPUT-DIR]: a SmartOS platform and its USB
-# image from this checkout, in one step, as root on a host that can make them (a builder-brand zone with lofi, UFS and pcfs mounts):
+# build-smartos [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [--arg NAME EXPR]... [OUTPUT-DIR]: a SmartOS
+# platform and its USB image from this checkout, in one step, as root on a host that can make them (a builder-brand zone with lofi, UFS and pcfs mounts):
 #   - the builder tools of the flavor (pkgs/smartos-live: smartos-live, or smartos-live-debug) built from the package
 #     set FILE (default this checkout's smartos.nix), kept as OUTPUT-DIR/builder-tools-FLAVOR;
 #   - the platform, OUTPUT-DIR/platform-STAMP (build-image), and its USB image, OUTPUT-DIR/platform-STAMP.usb.gz
 #     (build-usb, with their defaults: the console on ttya).
 # OUTPUT-DIR defaults to /var/tmp/build-smartos. --checkout DIR is the checkout the build is of, when it is not this
-# one: smartos-live's, when smartos-live is the entry point (its default.nix as FILE).
+# one: smartos-live's, when smartos-live is the entry point (its default.nix as FILE). --arg NAME EXPR is passed to
+# nix-build, for FILE's arguments (smartos-live's default.nix: illumos, a checkout of illumos-joyent).
 #
 # The build stamp says what was built (pkgs/smartos-live/identity.nix): a clean checkout's is its commit's time (a
 # release's, its release's), one with changed tracked files is dirty and stamped with the time of the build. Nix
@@ -19,7 +20,7 @@ set -euo pipefail
 top="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-    echo "usage: $0 [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [OUTPUT-DIR]" >&2
+    echo "usage: $0 [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [--arg NAME EXPR]... [OUTPUT-DIR]" >&2
     exit 2
 }
 fail() {
@@ -27,12 +28,13 @@ fail() {
     exit 1
 }
 
-flavor=default pkgs=$top/smartos.nix checkout=$top
+flavor=default pkgs=$top/smartos.nix checkout=$top nixArgs=()
 while [ $# -gt 0 ]; do
     case $1 in
         --flavor) [ $# -ge 2 ] || usage; flavor=$2; shift 2 ;;
         --pkgs) [ $# -ge 2 ] || usage; pkgs=$2; shift 2 ;;
         --checkout) [ $# -ge 2 ] || usage; checkout=$2; shift 2 ;;
+        --arg) [ $# -ge 3 ] || usage; nixArgs+=(--arg "$2" "$3"); shift 3 ;;
         -*) usage ;;
         *) break ;;
     esac
@@ -59,7 +61,7 @@ fi
 
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
-nix-build "$pkgs" -A "$attr.builderTools" -o "$out/builder-tools-$flavor" >/dev/null
+nix-build "$pkgs" -A "$attr.builderTools" -o "$out/builder-tools-$flavor" ${nixArgs[@]+"${nixArgs[@]}"} >/dev/null
 tools=$out/builder-tools-$flavor/bin
 
 "$tools/build-image" "$out" 2>&1 | tee "$out/build-image.log"

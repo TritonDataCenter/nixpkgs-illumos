@@ -7,7 +7,8 @@
 # smartos.nix into the output directory given, image then USB image, and says what it made; --flavor debug and
 # --pkgs FILE reach nix-build; a changed tracked file still builds, and is said to be dirty; an untracked file stops
 # it before anything is built, and an ignored one does not; with --checkout DIR, DIR's state is the one told and its
-# untracked files refuse; a failing build-image stops it before build-usb; a
+# untracked files refuse; --arg NAME EXPR, repeated, reaches nix-build; a failing build-image stops it before
+# build-usb; a
 # flavor that is not one, or a stray argument, is refused.
 #
 # usage: build-smartos.sh   (as root, as build-smartos needs; git on PATH)
@@ -127,6 +128,18 @@ else
     bad "an ignored file"; show ignored
 fi
 rm -r scratch
+
+if run args --arg illumos /some/illumos --arg other '{ }' "$out" &&
+    grep -qxF "nix-build $tmp/repo/smartos.nix -A smartos-live.builderTools -o $out/builder-tools-default --arg illumos /some/illumos --arg other { }" "$tmp/args.calls"; then
+    ok "--arg NAME EXPR, repeated, reaches nix-build"
+else
+    bad "--arg NAME EXPR"; show args
+fi
+if ! run argshort --arg illumos && [ ! -s "$tmp/argshort.calls" ] && grep -q usage "$tmp/argshort.out"; then
+    ok "--arg without its EXPR: refused"
+else
+    bad "--arg without its EXPR"; show argshort
+fi
 
 # --checkout: another repository (smartos-live's, when it is the entry point) is the one whose state is told
 git init -q -b main "$tmp/other"
