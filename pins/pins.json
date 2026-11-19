@@ -1,13 +1,13 @@
 {
   "illumos-extra": {
-    "date": 1792685984,
-    "hash": "sha256-iQbCVnykg/SgkzipM+aXN5HgnsxtMRwr4P/W6NjEres=",
-    "rev": "6c3515e2148fb335324a2f4866d540d81fefdc73"
+    "date": 1795012556,
+    "hash": "sha256-wv9XeeCNoY4n+KLoS0Y031uxCrqQ95wPo1iqyFojEuk=",
+    "rev": "c03ef56245d4c317f9cea8d58485fa2d27e40d52"
   },
   "illumos-joyent": {
-    "date": 1792686489,
-    "hash": "sha256-eZI0SmhIB17jec/Yn6CjAk2RrnTGGLkHutRc38rrZrE=",
-    "rev": "37d708fdd3cde1a74b1184077a9e768fe3a62aae"
+    "date": 1795026002,
+    "hash": "sha256-M6l8slhMQUEvNrFyi1rA6wY6gR+6pmnh6dYfvqVBbq8=",
+    "rev": "520f2a76f8facc87b6027d0eba80b61c51abb44b"
   },
   "kbmd": {
     "date": 1745358594,
