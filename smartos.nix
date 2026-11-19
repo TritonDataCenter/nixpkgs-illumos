@@ -2,10 +2,16 @@
 # an overlay of SmartOS's packages and the nixpkgs config they need, taking illumos.nix's arguments (overlays and
 # config given here go after these).
 #   nix-build smartos.nix -A smartos-live.builderTools
+# smartosLiveCheckout, a smartos-live checkout, is the smartos-live built (its tracked files as they are) and what the
+# build's identity is taken from, in place of the pinned commit and this repo's; smartos-live's own default.nix gives
+# it.
 args:
 
+let
+  smartosLiveCheckout = args.smartosLiveCheckout or null;
+in
 import ./illumos.nix (
-  args
+  builtins.removeAttrs args [ "smartosLiveCheckout" ]
   // {
     config = (args.config or { }) // {
       # SmartOS's strap node.js 0.10 (pkgs/smartos-strap/node.nix) is built with gyp, which needs python 2. Build time
@@ -25,7 +31,7 @@ import ./illumos.nix (
         # what illumos-extra adds to SmartOS's proto area after illumos, built by the same gcc 10
         smartos-extra = final.callPackage ./pkgs/smartos-extra { };
         # smartos-live's own stages (src, man, ...), built against those
-        smartos-live = final.callPackage ./pkgs/smartos-live { };
+        smartos-live = final.callPackage ./pkgs/smartos-live { checkout = smartosLiveCheckout; };
         # smartos-live's Jenkins "debug" build: the same, on a DEBUG nightly (stamp's last digit 8)
         smartos-illumos-debug = final.smartos-illumos.overrideScope (
           _: prev: { nightly = prev.nightly.override { debug = true; }; }

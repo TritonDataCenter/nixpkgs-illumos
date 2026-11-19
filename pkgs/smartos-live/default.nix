@@ -20,6 +20,9 @@
   # which of smartos-live's Jenkins builds this is (its Jenkinsfile): "default", "debug" (smartos-illumos and
   # smartos-extra built on a DEBUG nightly) or "gcc14"
   flavor ? "default",
+  # a smartos-live checkout to build, in place of the pinned commit, when smartos-live is the entry point (its own
+  # default.nix): its tracked files as they are, and the identity the build is stamped with
+  checkout ? null,
 }:
 
 lib.makeScope newScope (self: {
@@ -49,7 +52,14 @@ lib.makeScope newScope (self: {
 
   # smartos-live at the commit SmartOS release-20260903 was built from (its gitstatus.json), the release
   # smartos-extra.platformReference is, so that what is built here can be compared with it
-  smartosLive = self.fetchPin "smartos-live";
+  smartosLive = if checkout == null then self.fetchPin "smartos-live" else self.checkoutTree;
+  # the checkout's tracked files as builtins.fetchGit has them (changes included, untracked files not), with
+  # deps/eng, the submodule's place, empty, as GitHub's archive of a commit has it
+  checkoutTree = runCommand "source" { } ''
+    cp -R ${builtins.fetchGit checkout} $out
+    chmod u+w $out
+    mkdir -p $out/deps/eng
+  '';
 
   # gitstatus.json, which build_live writes into the platform (etc/versions/build, the boot archive's .gitstatus) as
   # tools/build_etcrelease -g gives it: each repository's branch, commit time, commit and URL, in the order
@@ -68,13 +78,27 @@ lib.makeScope newScope (self: {
             }'';
     in
     "[\n    " + lib.concatMapStringsSep ",\n    " entry entries + "\n]\n";
+  # (a checkout's smartos-live entry is its commit, on branch HEAD, what was checked out, unless its identity is
+  # unknown)
   gitstatusEntries =
     map
-      (name: {
-        repo = name;
-        inherit (self.pins.${name}) branch rev url;
-        commit_date = toString self.pins.${name}.date;
-      })
+      (
+        name:
+        if name == "smartos-live" && checkout != null && self.identity.kind != "unknown" then
+          {
+            repo = name;
+            branch = "HEAD";
+            commit_date = toString self.identity.date;
+            inherit (self.identity) rev;
+            inherit (self.pins.${name}) url;
+          }
+        else
+          {
+            repo = name;
+            inherit (self.pins.${name}) branch rev url;
+            commit_date = toString self.pins.${name}.date;
+          }
+      )
       (
         [
           "smartos-live"
@@ -85,10 +109,11 @@ lib.makeScope newScope (self: {
       );
   gitstatus = writeText "gitstatus.json" (self.gitstatusText self.gitstatusEntries);
 
-  # The overlay's identity (./identity.nix), from this checkout, and as the image step reads it (identityFile,
+  # The build's identity (./identity.nix): the overlay's, from this checkout, or the smartos-live checkout's when one
+  # is given; and as the image step reads it (identityFile,
   # ./stage-image.sh, ./build-image.sh): kind, rev, stamp, and the last release's root password and hash (a clean
   # tree's: ../../release/release.json), one KEY=VALUE a line, each empty when there is none
-  identity = import ./identity.nix { src = ../..; };
+  identity = import ./identity.nix { src = if checkout == null then ../.. else checkout; };
   identityFile =
     let
       release = field: if self.identity.release == null then "" else self.identity.release.${field};
@@ -101,11 +126,11 @@ lib.makeScope newScope (self: {
       hash=${release "hash"}
     '';
   # gitstatus.json for the platform: the pins' entries, then the overlay's own (its commit, or <commit>-dirty, and the
-  # commit's time; branch HEAD, what was checked out), unless its identity is unknown
+  # commit's time; branch HEAD, what was checked out), unless its identity is unknown or is a smartos-live checkout's
   platformGitstatus = writeText "gitstatus.json" (
     self.gitstatusText (
       self.gitstatusEntries
-      ++ lib.optional (self.identity.kind != "unknown") {
+      ++ lib.optional (checkout == null && self.identity.kind != "unknown") {
         repo = "nixpkgs-illumos";
         branch = "HEAD";
         commit_date = toString self.identity.date;
