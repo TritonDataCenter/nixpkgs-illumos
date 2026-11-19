@@ -9,7 +9,8 @@
 #   - gitstatus.json's smartos-live entry is the checkout's commit; the platform's also names the nixpkgs-illumos
 #     commit the recipes are: nixpkgsIllumosPin's (rev, date, url) when smartos-live's default.nix fetched them at its
 #     pin, else this repo's own checkout (its commit, or <commit>-dirty), as when it is the entry point;
-#   - without smartosLiveCheckout, smartos-live is the pinned commit.
+#   - without smartosLiveCheckout, smartos-live is the pinned commit;
+#   - a tree that is not a git checkout (e.g. an archive's) is refused with a message saying so.
 #
 # usage: smartos-live-checkout.sh PKGS-ARGS CHECKOUT
 #   PKGS-ARGS: a Nix expression for smartos.nix's arguments, e.g. '{ nixpkgs = /work/nixpkgs; }' or '{ }'
@@ -74,6 +75,12 @@ pin=$(ev 'pinned.pins.smartos-live.rev')
 got=$(evb 'pinned.smartosLive == pinned.fetchPin "smartos-live"')
 [ "$got" = true ] && [ -n "$pin" ] && ok "without a checkout, smartos-live is the pinned commit ($pin)" ||
 	{ bad "without a checkout: $got"; tail -3 "$tmp/eval.log"; }
+
+mkdir "$tmp/nogit" && git -C "$co" archive HEAD | (cd "$tmp/nogit" && tar xf - 2>/dev/null)
+[ -f "$tmp/nogit/tools/build_live" ] || bad "setup: the archive of the checkout did not unpack"
+got=$(nix eval --raw --impure --expr "(import $top/smartos.nix ($pkgsArgs // { smartosLiveCheckout = $tmp/nogit; })).smartos-live.smartosLive.outPath" 2>&1)
+echo "$got" | grep -F "is not a git checkout" >/dev/null &&
+	ok "a tree that is not a git checkout is refused, saying so" || bad "a tree without .git: $(echo "$got" | tail -3)"
 
 echo "# a change" >>"$co/tools/build_live"
 got=$(ev 'with live.identity; "${kind} ${rev}"')

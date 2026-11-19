@@ -57,12 +57,17 @@ lib.makeScope newScope (self: {
   # smartos-extra.platformReference is, so that what is built here can be compared with it
   smartosLive = if checkout == null then self.fetchPin "smartos-live" else self.checkoutTree;
   # the checkout's tracked files as builtins.fetchGit has them (changes included, untracked files not), with
-  # deps/eng, the submodule's place, empty, as GitHub's archive of a commit has it
-  checkoutTree = runCommand "source" { } ''
-    cp -R ${builtins.fetchGit checkout} $out
-    chmod u+w $out
-    mkdir -p $out/deps/eng
-  '';
+  # deps/eng, the submodule's place, empty, as GitHub's archive of a commit has it; a tree that is not a git checkout
+  # is refused, since there is nothing to stamp the build from or to tell tracked files by
+  checkoutTree =
+    if !builtins.pathExists (checkout + "/.git") then
+      throw "smartos-live: ${toString checkout} is not a git checkout; build from a git clone (the build is stamped from its commit, and only its tracked files are built)"
+    else
+      runCommand "source" { } ''
+        cp -R ${builtins.fetchGit checkout} $out
+        chmod u+w $out
+        mkdir -p $out/deps/eng
+      '';
 
   # gitstatus.json, which build_live writes into the platform (etc/versions/build, the boot archive's .gitstatus) as
   # tools/build_etcrelease -g gives it: each repository's branch, commit time, commit and URL, in the order
