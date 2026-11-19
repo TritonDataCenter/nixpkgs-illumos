@@ -22,6 +22,8 @@
 }:
 
 let
+  version = "10.5p1";
+  ver = "openssh-${version}";
   programs = [
     "/usr/bin/ssh"
     "/usr/bin/scp"
@@ -38,10 +40,9 @@ let
 in
 mkAutoconf {
   pname = "smartos-extra-openssh";
-  version = "10.5p1";
+  inherit version ver;
   dir = "openssh";
   extraDirs = [ "tools" ];
-  ver = "openssh-10.5p1";
   patches = "Patches/*";
   deps = [
     libz
@@ -89,9 +90,9 @@ mkAutoconf {
     "--with-xauth=/opt/local/bin/xauth"
   ];
   install = suffix: ''
-    (cd openssh-10.5p1-32${suffix} && ${cleanEnv} PATH="$PATH" make V=1 install DESTDIR=$out)
-    rm openssh-10.5p1-32${suffix}/sftp_provider.o
+    (cd ${ver}-32${suffix} && ${cleanEnv} PATH="$PATH" make V=1 install DESTDIR=$out)
+    rm ${ver}-32${suffix}/sftp_provider.o
     ${cleanEnv} PATH="$PATH" DESTDIR=$out CTFCONVERT=${ctfconvert} CTFCONVERTFLAGS= \
-      bash ../tools/make-ctf openssh-10.5p1-32${suffix} ctfobjects-32${suffix} openssh-10.5p1 ${toString programs}
+      bash ../tools/make-ctf ${ver}-32${suffix} ctfobjects-32${suffix} ${ver} ${toString programs}
   '';
 }
