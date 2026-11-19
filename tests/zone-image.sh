@@ -44,7 +44,8 @@
 #      - a command run over ssh (bash, not a login shell, SSH_CLIENT set) finds nix, through root's ~/.bashrc;
 #      - /etc/motd says what the zone is; an interactive login shell has NixOS's aliases and prompt (/etc/bashrc)
 #        and bash-completion, and finds illumos-rebuild;
-#      - the nixpkgs-illumos binary cache is off, and on once /etc/nix/nix.local.conf.example is copied into place.
+#      - the signed binary cache on Manta is on, with its public key, from /etc/nix/nix.local.conf; the unsigned
+#        nixpkgs-illumos cache is off, and on beside it once /etc/nix/nix.local.conf.example is added to that file.
 #   4. /etc/nixos/system.nix evaluates to the system profile the image ships, so a first `illumos-rebuild switch`
 #      changes nothing. It fetches what /etc/nixos/nixpkgs-illumos.nix names, so this holds only while that
 #      published commit's system is the same as this checkout's.
@@ -408,15 +409,25 @@ else
 	bad "an interactive login shell lacks bash-completion or illumos-rebuild: $out"
 fi
 
+signed=https://us-central.manta.mnx.io/nshalman/public/nix-cache
+signedKey=nshalman-manta-1:OP6w5Fj1u4UO0QE8es0e/SZvic2oy5GIwNOQBKVJb5k=
 cache=https://www.shalman.org/files/cache
-subst() { in_root /usr/bin/env HOME=/root /nix/var/nix/profiles/default/bin/nix config show substituters 2>/dev/null; }
-if ! subst | grep "$cache" >/dev/null && [ -f "$R/etc/nix/nix.local.conf.example" ] &&
-	cp "$R/etc/nix/nix.local.conf.example" "$R/etc/nix/nix.local.conf" && subst | grep "$cache" >/dev/null; then
-	ok "the binary cache is off, and on once nix.local.conf.example is copied into place"
+setting() { in_root /usr/bin/env HOME=/root /nix/var/nix/profiles/default/bin/nix config show "$1" 2>/dev/null; }
+if setting substituters | grep -F "$signed" >/dev/null && setting trusted-public-keys | grep -F "$signedKey" >/dev/null &&
+	! setting substituters | grep -F "$cache" >/dev/null; then
+	ok "the signed binary cache is on, with its key, and the unsigned one off"
 else
-	bad "binary cache: off by default or on with nix.local.conf does not hold (substituters now: $(subst))"
+	bad "binary caches by default (substituters: $(setting substituters); keys: $(setting trusted-public-keys))"
 fi
-rm -f "$R/etc/nix/nix.local.conf"
+[ -f "$R/etc/nix/nix.local.conf" ] && cp "$R/etc/nix/nix.local.conf" "$tmp/nix.local.conf"
+if [ -f "$R/etc/nix/nix.local.conf.example" ] &&
+	cat "$R/etc/nix/nix.local.conf.example" >>"$R/etc/nix/nix.local.conf" &&
+	setting substituters | grep -F "$cache" >/dev/null && setting substituters | grep -F "$signed" >/dev/null; then
+	ok "the unsigned binary cache is on too once nix.local.conf.example is added to nix.local.conf"
+else
+	bad "binary cache: nix.local.conf.example added does not turn it on beside the signed one (substituters now: $(setting substituters))"
+fi
+if [ -f "$tmp/nix.local.conf" ]; then cp "$tmp/nix.local.conf" "$R/etc/nix/nix.local.conf"; else rm -f "$R/etc/nix/nix.local.conf"; fi
 
 # --- 4. /etc/nixos evaluates to the shipped system ------------------------------------------------------------
 

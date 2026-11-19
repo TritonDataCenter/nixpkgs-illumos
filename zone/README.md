@@ -20,6 +20,7 @@ with `illumos-rebuild`; everything else is a few files outside the store.
 | `/etc/nixos/pkgs.nix` | the package set: that commit's `illumos.nix` on its defaults | `example/pkgs.nix` |
 | `/etc/nixos/system.nix` | that commit's `system.nix` applied to the package set and the zone's `nixSettings` | `example/system.nix` |
 | `/etc/nix/nix.conf` | symlink to `/nix/var/nix/profiles/default/etc/nix/nix.conf` | made once by hand or by the image |
+| `/etc/nix/nix.local.conf` | read after `nix.conf`: the signed binary cache on Manta and its public key; `nix.local.conf.example` beside it adds the unsigned nixpkgs-illumos cache | the zone image |
 | `/etc/profile` | puts `/opt/nix/bin` and the profile on PATH and the profile on MANPATH, exports the CA bundle | `profile` |
 | `/opt/nix/bin` | setuid-root copies of the programs the profile lists in `etc/setuid-programs` (sudo, sudoedit), which the store cannot hold. Roll back with `illumos-rebuild rollback`, which replaces them too; a bare `nix-env --rollback` leaves them on the newer system | the zone image, then `illumos-rebuild` on each switch |
 | `/nix/var/nix/gcroots/setuid-programs` | a GC root on the system the copies in `/opt/nix/bin` came from, so collecting garbage cannot delete what they run | the zone image, then `illumos-rebuild` on each switch |

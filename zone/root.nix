@@ -183,11 +183,19 @@ let
       }
     '';
 
+  # The signed binary cache on Manta (toolchain and SmartOS build closures), on from the first boot; outside the
+  # system profile, so a zone can turn it off by editing the file, without a rebuild
+  nixLocalConf = pkgs.writeText "nix.local.conf" ''
+    # Local additions to /etc/nix/nix.conf, which includes /etc/nix/nix.local.conf last (and skips it if it is
+    # missing); a zone's own file, outside the system profile. After a change: svcadm restart nix-daemon
+    # The signed binary cache on Manta:
+    extra-substituters = https://us-central.manta.mnx.io/nshalman/public/nix-cache
+    extra-trusted-public-keys = nshalman-manta-1:OP6w5Fj1u4UO0QE8es0e/SZvic2oy5GIwNOQBKVJb5k=
+  '';
   cacheUrl = "https://www.shalman.org/files/cache/?trusted=true";
   nixLocalConfExample = pkgs.writeText "nix.local.conf.example" ''
-    # Local additions to /etc/nix/nix.conf, which includes /etc/nix/nix.local.conf last (and skips it if it is
-    # missing). To use the nixpkgs-illumos binary cache:
-    #   cp /etc/nix/nix.local.conf.example /etc/nix/nix.local.conf && svcadm restart nix-daemon
+    # To use the nixpkgs-illumos binary cache as well, add this file to /etc/nix/nix.local.conf:
+    #   cat /etc/nix/nix.local.conf.example >>/etc/nix/nix.local.conf && svcadm restart nix-daemon
     # The cache is not signed yet, hence trusted=true.
     extra-substituters = ${cacheUrl}
   '';
@@ -211,14 +219,15 @@ let
 
       system profile  /nix/var/nix/profiles/default, from /etc/nixos/system.nix
       nix settings    /etc/nix/nix.conf, then /etc/nix/nix.local.conf if present
-      binary cache    cp /etc/nix/nix.local.conf.example /etc/nix/nix.local.conf
+      binary caches   the signed one on Manta, from /etc/nix/nix.local.conf; the unsigned one:
+                      cat /etc/nix/nix.local.conf.example >>/etc/nix/nix.local.conf
                       svcadm restart nix-daemon
 
   '';
 in
 pkgs.runCommand "illumos-zone-root"
   {
-    inherit gate gateFileList sshdConfig nixosPin nixosSystem zoneinitJson nixLocalConfExample motd sudoers sudoersAdmin;
+    inherit gate gateFileList sshdConfig nixosPin nixosSystem zoneinitJson nixLocalConf nixLocalConfExample motd sudoers sudoersAdmin;
     seedDb = "${seed}/repository.db";
     seedVarManifests = "${seed}/var/svc/manifest";
     siteProfile = ./site.xml;
@@ -426,6 +435,7 @@ pkgs.runCommand "illumos-zone-root"
     f 0644 "$etcProfile" etc/profile
     f 0644 "$etcBashrc" etc/bashrc
     f 0644 "$motd" etc/motd
+    f 0644 "$nixLocalConf" etc/nix/nix.local.conf
     f 0644 "$nixLocalConfExample" etc/nix/nix.local.conf.example
     l ${profileLink}/etc/nix/nix.conf etc/nix/nix.conf
     l ${profileLink}/etc/ssl/certs/ca-bundle.crt etc/ssl/certs/ca-bundle.crt
