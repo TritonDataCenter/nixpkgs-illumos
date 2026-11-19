@@ -92,7 +92,15 @@ lib.makeScope newScope (self: {
     map
       (
         name:
-        if name == "smartos-live" && checkout != null && self.identity.kind != "unknown" then
+        if name == "illumos-joyent" && smartos-illumos.checkoutIdentity != null then
+          {
+            repo = name;
+            branch = "HEAD";
+            commit_date = toString smartos-illumos.checkoutIdentity.date;
+            inherit (smartos-illumos.checkoutIdentity) rev;
+            inherit (self.pins.${name}) url;
+          }
+        else if name == "smartos-live" && checkout != null && self.identity.kind != "unknown" then
           {
             repo = name;
             branch = "HEAD";
@@ -121,7 +129,19 @@ lib.makeScope newScope (self: {
   # is given; and as the image step reads it (identityFile,
   # ./stage-image.sh, ./build-image.sh): kind, rev, stamp, and the last release's root password and hash (a clean
   # tree's: ../../release/release.json), one KEY=VALUE a line, each empty when there is none
-  identity = import ./identity.nix { src = if checkout == null then ../.. else checkout; };
+  # With an illumos-joyent checkout the stamp is left to the time of the build: a stamp names a build of the pins.
+  identity =
+    let
+      own = import ./identity.nix { src = if checkout == null then ../.. else checkout; };
+    in
+    if smartos-illumos.checkoutIdentity == null then
+      own
+    else
+      own
+      // {
+        stamp = null;
+        release = null;
+      };
   identityFile =
     let
       release = field: if self.identity.release == null then "" else self.identity.release.${field};

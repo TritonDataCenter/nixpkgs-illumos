@@ -5,16 +5,20 @@
 # smartosLiveCheckout, a smartos-live checkout, is the smartos-live built (its tracked files as they are) and what the
 # build's identity is taken from, in place of the pinned commit and this repo's; smartos-live's own default.nix gives
 # it, and nixpkgsIllumosPin ({ rev, date, url }) when it fetched this repo at its pin, for the platform's gitstatus.json.
+# illumosCheckout, an illumos-joyent checkout, is the illumos built in place of the pinned commit; a build of it is
+# stamped with the time of the build.
 args:
 
 let
   smartosLiveCheckout = args.smartosLiveCheckout or null;
   nixpkgsIllumosPin = args.nixpkgsIllumosPin or null;
+  illumosCheckout = args.illumosCheckout or null;
 in
 import ./illumos.nix (
   builtins.removeAttrs args [
     "smartosLiveCheckout"
     "nixpkgsIllumosPin"
+    "illumosCheckout"
   ]
   // {
     config = (args.config or { }) // {
@@ -31,7 +35,7 @@ import ./illumos.nix (
         # SmartOS's proto.strap: illumos-extra's strap packages built by that gcc 10.
         smartos-strap = final.callPackage ./pkgs/smartos-strap { };
         # illumos as SmartOS builds it (illumos-joyent), with that proto.strap.
-        smartos-illumos = final.callPackage ./pkgs/smartos-illumos { };
+        smartos-illumos = final.callPackage ./pkgs/smartos-illumos { checkout = illumosCheckout; };
         # what illumos-extra adds to SmartOS's proto area after illumos, built by the same gcc 10
         smartos-extra = final.callPackage ./pkgs/smartos-extra { };
         # smartos-live's own stages (src, man, ...), built against those
