@@ -1,14 +1,14 @@
 {
-  "illumos-extra": { "owner": "TritonDataCenter", "repo": "illumos-extra", "branch": "release-20261023" },
-  "illumos-joyent": { "owner": "TritonDataCenter", "repo": "illumos-joyent", "branch": "release-20261023" },
-  "kbmd": { "owner": "TritonDataCenter", "repo": "kbmd", "branch": "release-20261023" },
-  "kvm": { "owner": "TritonDataCenter", "repo": "illumos-kvm", "branch": "release-20261023" },
-  "kvm-cmd": { "owner": "TritonDataCenter", "repo": "illumos-kvm-cmd", "branch": "release-20261023" },
-  "mdata-client": { "owner": "TritonDataCenter", "repo": "mdata-client", "branch": "release-20261023" },
+  "illumos-extra": { "owner": "TritonDataCenter", "repo": "illumos-extra", "branch": "master" },
+  "illumos-joyent": { "owner": "TritonDataCenter", "repo": "illumos-joyent", "branch": "master" },
+  "kbmd": { "owner": "TritonDataCenter", "repo": "kbmd", "branch": "master" },
+  "kvm": { "owner": "TritonDataCenter", "repo": "illumos-kvm", "branch": "master" },
+  "kvm-cmd": { "owner": "TritonDataCenter", "repo": "illumos-kvm-cmd", "branch": "master" },
+  "mdata-client": { "owner": "TritonDataCenter", "repo": "mdata-client", "branch": "master" },
   "nix-src": { "owner": "nshalman", "repo": "nix-src", "branch": "illumos-support-2.35" },
   "nixpkgs": { "owner": "nshalman", "repo": "nixpkgs", "branch": "illumos-26.05" },
   "nixpkgs-illumos": { "owner": "nshalman", "repo": "nixpkgs-illumos", "branch": "main" },
   "rust-bhyve": { "owner": "TritonDataCenter", "repo": "rust-bhyve", "branch": "wip/virtio-gpu" },
-  "smartos-live": { "owner": "TritonDataCenter", "repo": "smartos-live", "branch": "release-20261023" },
-  "ur-agent": { "owner": "TritonDataCenter", "repo": "sdc-ur-agent", "branch": "release-20261023" }
+  "smartos-live": { "owner": "TritonDataCenter", "repo": "smartos-live", "branch": "master" },
+  "ur-agent": { "owner": "TritonDataCenter", "repo": "sdc-ur-agent", "branch": "master" }
 }
