@@ -23,6 +23,9 @@
   # a smartos-live checkout to build, in place of the pinned commit, when smartos-live is the entry point (its own
   # default.nix): its tracked files as they are, and the identity the build is stamped with
   checkout ? null,
+  # with a checkout, the commit of this repo it was fetched at ({ rev, date, url }), for gitstatus.json; null when
+  # this repo is a checkout itself, whose identity says
+  recipesPin ? null,
 }:
 
 lib.makeScope newScope (self: {
@@ -125,19 +128,30 @@ lib.makeScope newScope (self: {
       password=${release "password"}
       hash=${release "hash"}
     '';
-  # gitstatus.json for the platform: the pins' entries, then the overlay's own (its commit, or <commit>-dirty, and the
-  # commit's time; branch HEAD, what was checked out), unless its identity is unknown or is a smartos-live checkout's
-  platformGitstatus = writeText "gitstatus.json" (
-    self.gitstatusText (
-      self.gitstatusEntries
-      ++ lib.optional (checkout == null && self.identity.kind != "unknown") {
+  # gitstatus.json for the platform: the pins' entries, then the overlay's own (branch HEAD, what was checked out): its
+  # commit (or <commit>-dirty) and the commit's time from its identity, unless that is unknown; with a smartos-live
+  # checkout, the commit it was fetched at (recipesPin), or else its own checkout's identity likewise
+  overlayIdentity = if checkout == null then self.identity else import ./identity.nix { src = ../..; };
+  overlayEntry =
+    if checkout != null && recipesPin != null then
+      {
         repo = "nixpkgs-illumos";
         branch = "HEAD";
-        commit_date = toString self.identity.date;
-        inherit (self.identity) rev;
+        commit_date = toString recipesPin.date;
+        inherit (recipesPin) rev url;
+      }
+    else if self.overlayIdentity.kind != "unknown" then
+      {
+        repo = "nixpkgs-illumos";
+        branch = "HEAD";
+        commit_date = toString self.overlayIdentity.date;
+        inherit (self.overlayIdentity) rev;
         url = "https://github.com/nshalman/nixpkgs-illumos.git";
       }
-    )
+    else
+      null;
+  platformGitstatus = writeText "gitstatus.json" (
+    self.gitstatusText (self.gitstatusEntries ++ lib.optional (self.overlayEntry != null) self.overlayEntry)
   );
 
   # etc/release and etc/versions/build, as build_live writes them (bi_gen_version_files): gitstatus.json, and

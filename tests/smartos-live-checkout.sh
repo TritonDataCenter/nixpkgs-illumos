@@ -6,8 +6,9 @@
 #     GitHub's archive of a commit), so a change to a tracked file reaches the stages built from it;
 #   - the build's identity is the checkout's: clean at its commit (that commit, its time as the stamp), dirty with a
 #     changed tracked file;
-#   - gitstatus.json's smartos-live entry is the checkout's commit, and the platform's names no nixpkgs-illumos
-#     commit (smartos-live is what was checked out);
+#   - gitstatus.json's smartos-live entry is the checkout's commit; the platform's also names the nixpkgs-illumos
+#     commit the recipes are: nixpkgsIllumosPin's (rev, date, url) when smartos-live's default.nix fetched them at its
+#     pin, else this repo's own checkout (its commit, or <commit>-dirty), as when it is the entry point;
 #   - without smartosLiveCheckout, smartos-live is the pinned commit.
 #
 # usage: smartos-live-checkout.sh PKGS-ARGS CHECKOUT
@@ -52,13 +53,22 @@ got=$(ev 'with live.identity; "${kind} ${rev} ${stamp}"')
 [ "$got" = "clean $rev $stamp" ] && ok "a clean checkout's identity: its commit and stamp ($stamp)" ||
 	{ bad "clean identity: '$got', want 'clean $rev $stamp'"; tail -3 "$tmp/eval.log"; }
 
-got=$(ev 'builtins.readFile live.platformGitstatus')
-if echo "$got" | grep -A3 '"repo": "smartos-live"' | grep -F "\"rev\": \"$rev\"" >/dev/null &&
-	! echo "$got" | grep -F '"repo": "nixpkgs-illumos"' >/dev/null; then
-	ok "gitstatus.json names the checkout's commit for smartos-live, and no nixpkgs-illumos commit"
-else
-	bad "gitstatus.json: $got"; tail -3 "$tmp/eval.log"
-fi
+# entry REPO: gitstatus.json's entry for REPO (5 lines), from the platform's of the checkout ($1: extra arguments)
+entry() { ev "builtins.readFile ((import $top/smartos.nix (args // { smartosLiveCheckout = $co; } // $2)).smartos-live.platformGitstatus)" | grep -A4 "\"repo\": \"$1\""; }
+own=$(git -C "$top" rev-parse HEAD)
+git -C "$top" diff --quiet HEAD -- || own=$own-dirty
+got=$(entry smartos-live '{ }')
+echo "$got" | grep -F "\"rev\": \"$rev\"" >/dev/null &&
+	ok "gitstatus.json names the checkout's commit for smartos-live" || { bad "smartos-live entry: $got"; tail -3 "$tmp/eval.log"; }
+got=$(entry nixpkgs-illumos '{ }')
+echo "$got" | grep -F "\"rev\": \"$own\"" >/dev/null &&
+	ok "without nixpkgsIllumosPin, gitstatus.json names this repo's checkout ($own)" ||
+	{ bad "nixpkgs-illumos entry without a pin: '$got', want rev $own"; tail -3 "$tmp/eval.log"; }
+got=$(entry nixpkgs-illumos '{ nixpkgsIllumosPin = { rev = "0123abcd"; date = 1795000000; url = "https://example.com/r.git"; }; }')
+echo "$got" | grep -F '"rev": "0123abcd"' >/dev/null && echo "$got" | grep -F '"commit_date": "1795000000"' >/dev/null &&
+	echo "$got" | grep -F '"url": "https://example.com/r.git"' >/dev/null &&
+	ok "with nixpkgsIllumosPin, gitstatus.json names the pinned commit" ||
+	{ bad "nixpkgs-illumos entry with a pin: '$got'"; tail -3 "$tmp/eval.log"; }
 
 pin=$(ev 'pinned.pins.smartos-live.rev')
 got=$(evb 'pinned.smartosLive == pinned.fetchPin "smartos-live"')
