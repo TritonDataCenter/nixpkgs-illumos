@@ -123,11 +123,12 @@ def mkdirp(d):
 def listing(d):
     # what Manta has in directory d, name -> size (None for a directory), read a page at a time (MUPLOAD_LIST_LIMIT
     # entries, at most Manta's 1024); empty if d does not exist. One request a page rather than one a file.
-    # A page after the first starts at its marker, the last name of the one before: it asks for one more and drops it.
-    limit = int(os.environ.get("MUPLOAD_LIST_LIMIT", "1024"))
+    # A page after the first starts at its marker, the last name of the one before: it asks for one more (within
+    # Manta's 1024) and has it again.
+    limit = min(int(os.environ.get("MUPLOAD_LIST_LIMIT", "1024")), 1024)
     have, marker = {}, None
     while True:
-        n = limit + (1 if marker else 0)
+        n = min(limit + (1 if marker else 0), 1024)
         query = "?limit=%d" % n + ("&marker=" + urllib.parse.quote(marker, safe="") if marker else "")
         st, _, data = request("GET", d, query=query)
         if st == 404:

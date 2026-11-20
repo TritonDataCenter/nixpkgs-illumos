@@ -62,6 +62,8 @@ echo "four, longer" >"$tmp/src/a/b/four"
 out2=$(MUPLOAD_LIST_LIMIT=1 m -n "$tmp/src" "$remote" a/b/three a/b/four a/b/five 2>&1)
 [ "$out" = "skip 3 failed 0" ] && [ "$out2" = "skip 2 would upload 1 failed 0" ] &&
 	ok "a directory's listing read across pages" || bad "paged listing: $out; $out2"
+out=$(MUPLOAD_LIST_LIMIT=2000 m -n "$tmp/src" "$remote" a/b/three a/b/five 2>&1)
+[ "$out" = "skip 2 failed 0" ] && ok "a page larger than Manta's 1024 is asked as 1024" || bad "MUPLOAD_LIST_LIMIT=2000: $out"
 
 got=$(MANTA_KEY_ID=00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff m --ls "$remote" 2>&1); rc=$?
 [ $rc -ne 0 ] && echo "$got" | grep -q "not in the ssh agent" && ok "a key the agent does not hold: refused, non-zero" ||
