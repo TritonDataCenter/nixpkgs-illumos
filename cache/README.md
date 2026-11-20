@@ -8,8 +8,8 @@ and uses the cache; `./push.sh` fills it with what a build used, and `./mupload.
 
 | What | Where it is used | Backup |
 |---|---|---|
-| `nshalman-manta-1` signing key | snow-nix-builds, `/root/.config/nix/cache-nshalman-manta-1.sec` (`CACHE_SECRET_KEY` for `push.sh`) | 1Password, Nahum's Employee vault: "Nix binary cache signing key nshalman-manta-1" |
-| Manta key of the sub-user `nix_cache_ci` | snow-nix-ci, `/root/.ssh/nix-cache-ci` (RSA 4096, MD5 `6b:fd:45:8c:a0:91:62:63:c4:74:ad:a4:89:ac:f6:f6`) | 1Password, Employee vault: "Manta sub-user nix_cache_ci SSH private key"; the sub-user's (unused) password beside it |
+| `nshalman-manta-1` signing key | snow-nix-ci, `/var/lib/github-act-runner/keys/cache-nshalman-manta-1.sec` (the runner's, `../ci/README.md`); snow-nix-builds, `/root/.config/nix/cache-nshalman-manta-1.sec` (`CACHE_SECRET_KEY` for `push.sh`) | 1Password, Nahum's Employee vault: "Nix binary cache signing key nshalman-manta-1" |
+| Manta key of the sub-user `nix_cache_ci` | snow-nix-ci, `/var/lib/github-act-runner/keys/nix-cache-ci` (the runner's) and `/root/.ssh/nix-cache-ci` (RSA 4096, MD5 `6b:fd:45:8c:a0:91:62:63:c4:74:ad:a4:89:ac:f6:f6`) | 1Password, Employee vault: "Manta sub-user nix_cache_ci SSH private key"; the sub-user's (unused) password beside it |
 
 Whoever holds the signing key can give every zone that trusts it any build output: keep it to the places above.
 On a self-hosted runner, anyone who can push to the repository can reach what is on the runner's disk, whatever the
