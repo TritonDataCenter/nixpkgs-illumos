@@ -1,9 +1,16 @@
 #!/bin/bash
 #
-# build-image OUTPUT-DIR [ROOT-PASSWORD]: SmartOS's platform image, made as smartos-live's `gmake live` makes it
-# (tools/build_live), from what Nix built: the manifest (@manifest@), the stages' outputs as builder's search
-# directories (@searchDirs@) and the workspace build_live runs from (@workspace@). Needs root, lofi and UFS mounts:
-# a zone with the builder brand (its lofi devices) and fs_allowed including ufs, or the global zone.
+# build-image [--illumos-proto DIR] OUTPUT-DIR [ROOT-PASSWORD]: SmartOS's platform image, made as smartos-live's
+# `gmake live` makes it (tools/build_live), from what Nix built: the manifest (@manifest@), the stages' outputs as
+# builder's search directories (@searchDirs@, then the illumos build's proto area, @illumosProto@) and the workspace
+# build_live runs from (@workspace@). Needs root, lofi and UFS mounts: a zone with the builder brand (its lofi
+# devices) and fs_allowed including ufs, or the global zone.
+#
+# --illumos-proto DIR takes the proto area DIR, an incremental build's (smartos-illumos.workspace), in place of the
+# illumos build's: its files, its kernel and its motd and issue, beneath the other stages' as the illumos build's
+# are. What is in DIR is not a Nix output, so the image is stamped as a dirty tree's (the time it is made), with a
+# root password of its own. The manifest and the rest are the Nix build's, made against the illumos build's proto
+# area: a file DIR has that the manifest does not list is not in the image.
 #
 # The build stamp follows the overlay's checkout (./identity.nix, ./stage-image.sh): a clean tree's is its commit's
 # time, a dirty one's the time the image is made, its last digit the flavor's (@flavorDigit@).
@@ -18,7 +25,23 @@ set -euo pipefail
 
 export PATH=/usr/bin:/usr/sbin:/sbin:@extraPath@
 
-out=${1:?usage: $0 OUTPUT-DIR [ROOT-PASSWORD]}
+usage() {
+    echo "usage: $0 [--illumos-proto DIR] OUTPUT-DIR [ROOT-PASSWORD]" >&2
+    exit 2
+}
+identity=@identity@
+illumos_proto=@illumosProto@
+if [ "${1:-}" = --illumos-proto ]; then
+    [ $# -ge 2 ] || usage
+    [ -f "$2/platform/i86pc/kernel/amd64/unix" ] || { echo "build-image: $2 is not an illumos proto area" >&2; exit 1; }
+    illumos_proto=$(cd "$2" && pwd)
+    shift 2
+    identity=$(mktemp)
+    printf 'kind=dirty\nrev=\nstamp=\npassword=\nhash=\n' >"$identity"
+    echo "build-image: illumos from $illumos_proto, stamped as dirty"
+fi
+[ $# -ge 1 ] || usage
+out=$1
 password=${2:-}
 release_password= release_hash=
 while IFS='=' read -r key value; do
@@ -26,7 +49,7 @@ while IFS='=' read -r key value; do
         password) release_password=$value ;;
         hash) release_hash=$value ;;
     esac
-done <@identity@
+done <"$identity"
 if [ -z "$password" ] && [ -n "$release_hash" ]; then
     password=$release_password
     export BI_ROOT_HASH=$release_hash
@@ -41,18 +64,18 @@ fi
 # build_live finds its tree by its own path and writes its log in log/ there: a directory of links to the workspace,
 # with log/ in OUTPUT-DIR
 ws=$(mktemp -d)
-trap 'rm -rf "$ws"' EXIT
+trap 'rm -rf "$ws"; [ "$identity" = @identity@ ] || rm -f "$identity"' EXIT
 for f in @workspace@/*; do
     [ "${f##*/}" = proto ] || ln -s "$f" "$ws/"
 done
 mkdir -p "$out/log"
 ln -s "$(cd "$out" && pwd)/log" "$ws/log"
 
-# The platform's build stamp, from the overlay's identity (@identity@; ./stage-image.sh): the proto area build_live
+# The platform's build stamp, from the overlay's identity (@identity@, or a dirty one; ./stage-image.sh): the proto area build_live
 # reads it from, and the files with it in (the kernel's uname -v, motd, issue) in a search directory of their own,
 # ahead of the others, as builder takes each file from the first that has it
-stamp=$(stage-image @identity@ "$ws/stage" @flavorDigit@)
+stamp=$(ILLUMOS_PROTO=$illumos_proto stage-image "$identity" "$ws/stage" @flavorDigit@)
 echo "build-image: build stamp $stamp"
 ln -s "$ws/stage/proto" "$ws/proto"
 
-"$ws/tools/build_live" -m @manifest@ -o "$out" -p "$password" "$ws/stage/stamped" @searchDirs@
+"$ws/tools/build_live" -m @manifest@ -o "$out" -p "$password" "$ws/stage/stamped" @searchDirs@ "$illumos_proto"

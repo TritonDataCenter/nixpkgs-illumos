@@ -499,7 +499,14 @@ lib.makeScope newScope (self: {
   # identity (libexec/stage-image, ./stage-image.sh: in the proto area build_live reads, the kernel's uname -v by
   # libexec/uname-version, motd and issue, ahead of the search directories). Needs root, lofi and UFS mounts. What their
   # PATH has from pkgsrc, md5sum and gtar, is nixpkgs' coreutils and GNU tar here.
-  buildImage = runCommand "smartos-live-build-image" { } ''
+  buildImage =
+    let
+      # the search directories above the illumos build's proto area, the last, which build-image may replace
+      searchDirsAbove =
+        assert lib.last self.searchDirs == self.illumosProto;
+        lib.init self.searchDirs;
+    in
+    runCommand "smartos-live-build-image" { } ''
     mkdir -p $out/bin $out/libexec
     ln -s ${gnutar}/bin/tar $out/libexec/gtar
     cp ${./uname-version.sh} $out/libexec/uname-version
@@ -507,7 +514,8 @@ lib.makeScope newScope (self: {
     chmod +x $out/libexec/uname-version $out/libexec/stage-image
     substitute ${./build-image.sh} $out/bin/build-image \
       --subst-var-by manifest ${self.manifest}/manifest.gen \
-      --subst-var-by searchDirs "${toString self.searchDirs}" \
+      --subst-var-by searchDirs "${toString searchDirsAbove}" \
+      --subst-var-by illumosProto ${self.illumosProto} \
       --subst-var-by identity ${self.identityFile} \
       --subst-var-by flavorDigit ${self.flavorDigit} \
       --subst-var-by workspace ${self.liveWorkspace} \

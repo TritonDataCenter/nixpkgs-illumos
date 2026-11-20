@@ -1,8 +1,9 @@
 #!/bin/bash
 #
 # stage-image IDENTITY DIR DIGIT: the platform's build stamp, printed, and what build-image gives build_live for it
-# besides what Nix built: DIR/proto, the illumos build's proto area (@illumosProto@) by links, with that stamp as the
-# buildstamp build_live reads (it names the platform, etc/release and etc/version/platform by it); and DIR/stamped,
+# besides what Nix built: DIR/proto, the illumos build's proto area (@illumosProto@, or ILLUMOS_PROTO, an incremental
+# build's) by links, with that stamp as the buildstamp build_live reads (it names the platform, etc/release and
+# etc/version/platform by it); and DIR/stamped,
 # files with the stamp in, ahead of builder's search directories: the kernel, its uname -v joyent_STAMP (as
 # smartos-live's build_illumos makes GATE; ./uname-version.sh), and etc/motd and etc/issue, the illumos build's with
 # its stamp replaced.
@@ -22,7 +23,7 @@ usage() {
 }
 [ $# = 3 ] && [ -f "$1" ] && [[ $3 =~ ^[0-9]$ ]] || usage
 identity=$1 dir=$2 digit=$3
-proto=@illumosProto@
+proto=${ILLUMOS_PROTO:-@illumosProto@}
 
 kind= stamp=
 while IFS='=' read -r key value; do

@@ -7,7 +7,8 @@
 # smartos.nix into the output directory given, image then USB image, and says what it made; --flavor debug and
 # --pkgs FILE reach nix-build; a changed tracked file still builds, and is said to be dirty; an untracked file stops
 # it before anything is built, and an ignored one does not; with --checkout DIR, DIR's state is the one told and its
-# untracked files refuse; --arg NAME EXPR, repeated, reaches nix-build; a failing build-image stops it before
+# untracked files refuse; --arg NAME EXPR, repeated, reaches nix-build; --illumos-proto DIR reaches build-image;
+# a failing build-image stops it before
 # build-usb; a
 # flavor that is not one, or a stray argument, is refused.
 #
@@ -32,6 +33,7 @@ mkdir -p "$tmp/bin" "$tmp/tools/bin"
 cat >"$tmp/tools/bin/build-image" <<EOF
 #!/bin/bash
 echo "build-image \$*" >>$tmp/calls
+[ "\$1" != --illumos-proto ] || shift 2
 [ -z "\${FAKE_IMAGE_FAIL:-}" ] || { echo "build-image: it failed" >&2; exit 1; }
 echo "build-image: build stamp 20261005T120000Z"
 mkdir -p "\$1/platform-20261005T120000Z"
@@ -139,6 +141,21 @@ if ! run argshort --arg illumos && [ ! -s "$tmp/argshort.calls" ] && grep -q usa
     ok "--arg without its EXPR: refused"
 else
     bad "--arg without its EXPR"; show argshort
+fi
+
+# --illumos-proto DIR: an incremental build's proto area, which build-image takes in place of the store's, said
+mkdir -p "$tmp/proto"
+if run iproto --illumos-proto "$tmp/proto" "$out" &&
+    grep -qxF "build-image --illumos-proto $tmp/proto $out" "$tmp/iproto.calls" && grep -q "build-usb" "$tmp/iproto.calls" &&
+    grep -q "illumos from $tmp/proto" "$tmp/iproto.out"; then
+    ok "--illumos-proto DIR reaches build-image, and is said"
+else
+    bad "--illumos-proto"; show iproto
+fi
+if ! run iprotoshort --illumos-proto && [ ! -s "$tmp/iprotoshort.calls" ] && grep -q usage "$tmp/iprotoshort.out"; then
+    ok "--illumos-proto without its DIR: refused"
+else
+    bad "--illumos-proto without its DIR"; show iprotoshort
 fi
 
 # --checkout: another repository (smartos-live's, when it is the entry point) is the one whose state is told

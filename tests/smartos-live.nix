@@ -181,8 +181,10 @@ in
     echo "ok   identityFile: kind, rev, stamp, and the release's password and hash (${live.identity.kind})"
     bash -n ${live.buildImage}/bin/build-image
     if ${live.buildImage}/bin/build-image 2>err; then exit 1; fi
-    grep "usage: .* OUTPUT-DIR \[ROOT-PASSWORD\]" err >/dev/null
-    echo "ok   build-image"
+    grep "usage: .* \[--illumos-proto DIR\] OUTPUT-DIR \[ROOT-PASSWORD\]" err >/dev/null
+    if ${live.buildImage}/bin/build-image --illumos-proto /nonexistent out 2>err; then exit 1; fi
+    grep "not an illumos proto area" err >/dev/null
+    echo "ok   build-image, and --illumos-proto refuses a directory that is not a proto area"
     touch $out
   '';
   # uname-version on a copy of the illumos build's kernel: the version uname -v reports (bare in the kernel, besides
@@ -214,7 +216,8 @@ in
   # stage-image, the image step's build stamp, for each kind of identity and a flavor's last digit: a clean tree's
   # stamp (its commit's time) or, for a dirty one, the time now, with the digit as its last; that stamp in the proto
   # area build_live reads (the illumos build's otherwise, by links), the kernel's uname -v, and etc/motd and etc/issue
-  # (the illumos build's, its stamp replaced); an identity of no known kind, and a digit that is not one, refused.
+  # (the illumos build's, its stamp replaced); another proto area in its place (ILLUMOS_PROTO, an incremental
+  # build's: build-image --illumos-proto); an identity of no known kind, and a digit that is not one, refused.
   stageImage = pkgs.runCommand "smartos-live-stage-image-check" { } ''
     t=${live.buildImage}/libexec/stage-image
     p=${live.illumosProto}
@@ -241,6 +244,14 @@ in
     [[ $s =~ ^[0-9]{8}T[0-9]{5}9Z$ ]] && { [ "''${s:0:8}" = "$before" ] || [ "''${s:0:8}" = "$after" ]; } || exit 1
     [ "$(cat d/proto/buildstamp)" = "$s" ] && [ "$(bare d/stamped/platform/i86pc/kernel/amd64/unix)" = "joyent_$s" ] || exit 1
     echo "ok   a dirty tree: the time now (UTC), last digit the flavor's (9)"
+    mkdir other
+    for f in $p/*; do ln -s $f other/; done
+    rm other/buildstamp other/etc && mkdir other/etc && echo 20200101T000000Z >other/buildstamp
+    echo "SmartOS (build: 20200101T000000Z)" >other/etc/motd && echo "built 20200101T000000Z" >other/etc/issue
+    [ "$(ILLUMOS_PROTO=$PWD/other $t clean o 7)" = 20231114T221327Z ]
+    [ "$(readlink o/proto/usr)" = $PWD/other/usr ] && [ "$(cat o/proto/buildstamp)" = 20231114T221327Z ] || exit 1
+    [ "$(cat o/stamped/etc/motd)" = "SmartOS (build: 20231114T221327Z)" ] && [ "$(cat o/stamped/etc/issue)" = "built 20231114T221327Z" ] || exit 1
+    echo "ok   another proto area (ILLUMOS_PROTO): its files, by links, and its motd and issue, stamped"
     printf 'kind=bogus\n' >bad
     if $t bad b 7 2>err; then exit 1; fi
     grep -q 'bogus' err
