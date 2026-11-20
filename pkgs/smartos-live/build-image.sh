@@ -44,7 +44,8 @@ case "${1:-}" in
             above="@localDir@"
             what="everything but projects/local"
         else
-            [ -f "$2/platform/i86pc/kernel/amd64/unix" ] || { echo "build-image: $2 is not an illumos proto area" >&2; exit 1; }
+            [ -f "$2/platform/i86pc/kernel/amd64/unix" ] ||
+                { echo "build-image: $2 is not an illumos proto area" >&2; exit 1; }
             what=illumos
         fi
         illumos_proto=$(cd "$2" && pwd)
@@ -85,9 +86,9 @@ done
 mkdir -p "$out/log"
 ln -s "$(cd "$out" && pwd)/log" "$ws/log"
 
-# The platform's build stamp, from the overlay's identity (@identity@, or a dirty one; ./stage-image.sh): the proto area build_live
-# reads it from, and the files with it in (the kernel's uname -v, motd, issue) in a search directory of their own,
-# ahead of the others, as builder takes each file from the first that has it
+# The platform's build stamp, from the overlay's identity (@identity@, or a dirty one; ./stage-image.sh): the proto
+# area build_live reads it from, and the files with it in (the kernel's uname -v, motd, issue) in a search directory
+# of their own, ahead of the others, as builder takes each file from the first that has it
 stamp=$(ILLUMOS_PROTO=$illumos_proto stage-image "$identity" "$ws/stage" @flavorDigit@)
 echo "build-image: build stamp $stamp"
 ln -s "$ws/stage/proto" "$ws/proto"

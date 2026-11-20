@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # build-smartos [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [--arg NAME EXPR]...
-#   [--illumos-proto DIR | --proto DIR] [OUTPUT-DIR]: a SmartOS
-# platform and its USB image from this checkout, in one step, as root on a host that can make them (a builder-brand zone with lofi, UFS and pcfs mounts):
+#   [--illumos-proto DIR | --proto DIR] [OUTPUT-DIR]: a SmartOS platform and its USB image from this checkout, in one
+# step, as root on a host that can make them (a builder-brand zone with lofi, UFS and pcfs mounts):
 #   - the builder tools of the flavor (pkgs/smartos-live: smartos-live, or smartos-live-debug) built from the package
 #     set FILE (default this checkout's smartos.nix), kept as OUTPUT-DIR/builder-tools-FLAVOR;
 #   - the platform, OUTPUT-DIR/platform-STAMP (build-image), and its USB image, OUTPUT-DIR/platform-STAMP.usb.gz
