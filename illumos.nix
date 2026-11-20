@@ -76,6 +76,8 @@ import nixpkgs {
       openjdk11-illumos = final.callPackage ./pkgs/openjdk11-illumos { };
       # rust-lang.org's Rust toolchain for illumos, and a rustPlatform that builds with it
       rust-illumos-bin = final.callPackage ./pkgs/rust-illumos-bin { };
+      # a GitHub Actions self-hosted runner in Go, for CI on illumos
+      github-act-runner = final.callPackage ./pkgs/github-act-runner { };
     })
   ]
   ++ overlays;
