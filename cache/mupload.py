@@ -9,7 +9,8 @@
 # It uploads a Nix binary cache made by `nix copy --to file://...` (./push.sh), where no Manta client runs: nixpkgs'
 # node-manta needs a node.js that nixpkgs has not for illumos.
 #
-# MANTA_URL, MANTA_USER and MANTA_KEY_ID (the key's MD5 fingerprint, as node-manta takes it) as for node-manta.
+# MANTA_URL, MANTA_USER and MANTA_KEY_ID (the key's MD5 fingerprint, as node-manta takes it) as for node-manta, and
+# MANTA_SUBUSER to sign as that sub-user of MANTA_USER's account, with its key (see ./README.md).
 # Directories are made as needed. A file whose remote copy has the same size is skipped; -n only lists what would
 # be uploaded. Exits non-zero if any upload failed (a directory Manta refuses fails the files in it).
 import base64, concurrent.futures, email.utils, hashlib, http.client, json, os, socket, struct, sys, threading
@@ -17,6 +18,7 @@ import urllib.parse
 
 url = urllib.parse.urlparse(os.environ.get("MANTA_URL", "https://us-central.manta.mnx.io"))
 user = os.environ["MANTA_USER"]
+signer = user + ("/" + os.environ["MANTA_SUBUSER"] if os.environ.get("MANTA_SUBUSER") else "")
 key_id = os.environ["MANTA_KEY_ID"].removeprefix("MD5:")
 
 
@@ -83,7 +85,7 @@ def request(method, path, body=None, headers=None, length=None):
     h = {
         "Date": date,
         "Authorization": 'Signature keyId="/%s/keys/%s",algorithm="rsa-sha256",headers="date",signature="%s"'
-        % (user, key_id, sign(("date: " + date).encode())),
+        % (signer, key_id, sign(("date: " + date).encode())),
     }
     h.update(headers or {})
     if length is not None:
@@ -104,6 +106,11 @@ def mkdirp(d):
     for n in range(3, len(parts) + 1):  # /USER/public exists
         p = "/" + "/".join(parts[:n])
         if p in made:
+            continue
+        # PUT on a directory that exists replaces its metadata, role tags too (./README.md): make only what is missing
+        st, h, _ = request("HEAD", p)
+        if st == 200 and h.get("Content-Type", "").endswith("type=directory"):
+            made.add(p)
             continue
         st, _, data = request("PUT", p, headers={"Content-Type": "application/json; type=directory"}, length=0)
         if st not in (200, 204):
