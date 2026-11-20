@@ -3,8 +3,8 @@
 `snow-nix-ci` (a zone from the nixpkgs-illumos zone image on snow) keeps the binary cache on Manta
 (`../cache/README.md`) filled: for each push to `main` or `wip/release-20261023` of
 TritonDataCenter/nixpkgs-illumos, and for manual runs, `../.github/workflows/cache.yml` runs `./fill-cache.sh` on it,
-which builds what the cache serves (smartos-live's builder tools, github-act-runner, go) and pushes everything their
-build used.
+which builds what the cache serves (smartos-live's builder tools, smartos-illumos' workspace, github-act-runner, go)
+and pushes everything their build used.
 
 ## The runner
 

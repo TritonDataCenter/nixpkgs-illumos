@@ -5,15 +5,16 @@
 # (../.github/workflows/cache.yml). Run it as the runner user in that zone to do the same by hand.
 #
 # What it builds: smartos-live's builder tools (the toolchains and stages a SmartOS build needs, from the pins),
-# github-act-runner and go. It signs with the cache's key and uploads as the Manta sub-user nix_cache_ci, both from
-# KEYS (default /var/lib/github-act-runner/keys: cache-nshalman-manta-1.sec, nix-cache-ci and nix-cache-ci.pub),
-# in an ssh agent of its own.
+# smartos-illumos' workspace (an illumos checkout built in place: the small pieces the nightly's own build alone
+# would make), github-act-runner and go. It signs with the cache's key and uploads as the Manta sub-user nix_cache_ci,
+# both from KEYS (default /var/lib/github-act-runner/keys: cache-nshalman-manta-1.sec, nix-cache-ci and
+# nix-cache-ci.pub), in an ssh agent of its own.
 
 set -euo pipefail
 
 top="$(cd "$(dirname "$0")/.." && pwd)"
 keys=${KEYS:-/var/lib/github-act-runner/keys}
-expr="let p = import $top/smartos.nix { }; in [ p.smartos-live.builderTools p.github-act-runner p.go ]"
+expr="let p = import $top/smartos.nix { }; in [ p.smartos-live.builderTools p.smartos-illumos.workspace p.github-act-runner p.go ]"
 
 echo "fill-cache.sh: building"
 nix-build --no-out-link -E "$expr"
