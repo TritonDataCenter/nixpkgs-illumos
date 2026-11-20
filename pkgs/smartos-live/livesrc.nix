@@ -75,16 +75,23 @@ let
     illumosProto
   ];
   ctfBin = builtins.dirOf ctfconvert;
-  makeFlags = [
+  # src's make flags, with DESTDIR's (here: this package's output, and what it reads apart) in the middle; also for
+  # a checkout built in place (./src-workspace.nix), DESTDIR its proto area
+  makeFlagsWith = destdirFlags: [
     "NATIVEDIR=${strapProto}"
-    "DESTDIR=$out"
-    ''READPROTO="${toString readProto}"''
-    "NODE_PROTO=${smartos-extra.node}/usr/node/0.10"
+  ]
+  ++ destdirFlags
+  ++ [
     "CTFCONVERT=${ctfBin}/ctfconvert"
     "CTFMERGE=${ctfBin}/ctfmerge"
     ''NPM_EXEC="${strapProto}/usr/node/0.10/bin/node ${strapProto}/usr/node/0.10/bin/npm"''
     "MAKE=make"
     ''PATH="${strapProto}/usr/bin:${strapProto}/usr/node/0.10/bin:${strapProto}/usr/node/0.10/lib/node_modules/npm/bin/node-gyp-bin:$PATH:/usr/bin:/usr/sbin:/sbin"''
+  ];
+  makeFlags = makeFlagsWith [
+    "DESTDIR=$out"
+    ''READPROTO="${toString readProto}"''
+    "NODE_PROTO=${smartos-extra.node}/usr/node/0.10"
   ];
   # nixpkgs' python 2.7, reporting its version as 2.7.18 (see above)
   pythonForNodeGyp = runCommand "python-for-node-gyp" { } ''
@@ -179,4 +186,6 @@ stdenv.mkDerivation {
 
   # illumos ELF: leave it as the link-editor wrote it.
   dontFixup = true;
+
+  passthru = { inherit makeFlagsWith pythonForNodeGyp; };
 }
