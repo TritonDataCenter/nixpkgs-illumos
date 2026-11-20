@@ -7,6 +7,9 @@
   pkgs,
   # merged over the defaults below into etc/nix/nix.conf (./nix-conf.nix)
   nixSettings ? { },
+  # the zone's own packages, merged into the profile like the ones below; an SMF manifest one carries at
+  # lib/svc/manifest/site/ is imported by illumos-rebuild like those of ./services.nix
+  extraPackages ? [ ],
 }:
 let
   services = import ./services.nix { inherit pkgs; };
@@ -60,7 +63,8 @@ pkgs.buildEnv {
     # sudo, as the SmartOS base images have it (the zone image's /etc/sudoers); it runs from its setuid copy
     sudo
     setuidPrograms
-  ];
+  ]
+  ++ extraPackages;
   pathsToLink = [ "/bin" "/etc" "/lib" "/libexec" "/share" ];
   ignoreCollisions = true;
 }
