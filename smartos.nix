@@ -7,7 +7,7 @@
 # it, and nixpkgsIllumosPin ({ rev, date, url }) when it fetched this repo at its pin, for the platform's gitstatus.json.
 # illumosCheckout, an illumos-joyent checkout, is the illumos built in place of the pinned commit; a build of it is
 # stamped with the time of the build.
-args:
+args@{ ... }:
 
 let
   smartosLiveCheckout = args.smartosLiveCheckout or null;
