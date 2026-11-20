@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
 # boot-vm's parts that run without root and bhyve: boot-vm.exp driving tests/boot-vm-fake.sh, a stand-in for the VM's
-# console (the console logged; a pattern found, not found in time, or bhyve exiting; logging in with the password
-# file and running commands, their output on ours, a wrong password and a failing command told apart), the bhyve
-# command boot-vm makes (--dry-run), and the rshyve one (--vmm rshyve), its arguments, and vm-net's boot properties.
+# console (the console logged, beside the image; a pattern found, not found in time, or bhyve exiting; logging in with
+# the password file and running commands, their output on ours, a wrong password and a failing command told apart),
+# the bhyve command boot-vm makes (--dry-run), and the rshyve one (--vmm rshyve), its arguments, and vm-net's boot
+# properties.
 #
 # usage: boot-vm.sh TOOLS-BIN EXPECT BOOT-VM-EXP FAKE-VM (TOOLS-BIN: builderTools' bin; EXPECT: an expect binary)
 
@@ -127,6 +128,16 @@ if FAKE_STTY=$tmp/rshyve.stty PATH=$tmp/rshyve-bin:$PATH "$tools/boot-vm" --vmm 
     ok "--vmm rshyve: rshyve's terminal raw (no echo, no output processing)"
 else
     bad "--vmm rshyve's terminal"; show rrun.out rshyve.stty
+fi
+
+# the console log beside the image (its output directory), not in the current directory (perhaps a checkout)
+mkdir -p elsewhere
+if (cd elsewhere && FAKE_STTY=$tmp/rshyve2.stty PATH=$tmp/rshyve-bin:$PATH "$tools/boot-vm" --vmm rshyve -n vml \
+    --expect 'login: ' --timeout 30 ../img.usb >../log.out 2>&1) && [ -s vml.console ] && [ ! -e elsewhere/vml.console ] &&
+    grep -q "log: $tmp/vml.console" log.out; then
+    ok "the console log beside the image, not in the current directory"
+else
+    bad "the console log's place: $(ls elsewhere)"; show log.out
 fi
 
 if ! "$tools/boot-vm" --run 'echo hi' img.usb 2>norun.err && grep -q 'password-file' norun.err &&

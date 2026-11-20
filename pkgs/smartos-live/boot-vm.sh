@@ -12,9 +12,10 @@
 # --vmm rshyve runs it under rshyve (rust-bhyve, the overlay's rust-bhyve package), found on the caller's PATH, in
 # place of the platform's bhyve: its disks on NVMe and its COM2 on nothing (see make_vm).
 #
-# With --expect, the VM runs under expect, its console logged (NAME.console, in the current directory) instead,
-# until PATTERN (a regular expression) appears on it (exit 0), SECONDS pass (default 600; exit 1) or bhyve exits
-# (exit 2), then is destroyed: a boot test, e.g. --expect 'login:' for an image made with -B noimport=true.
+# With --expect, the VM runs under expect, its console logged (NAME.console, beside IMAGE: in its output directory,
+# not wherever this runs, perhaps a checkout) instead, until PATTERN (a regular expression) appears on it (exit 0),
+# SECONDS pass (default 600; exit 1) or bhyve exits (exit 2), then is destroyed: a boot test, e.g. --expect 'login:'
+# for an image made with -B noimport=true.
 #
 # With --run, likewise until the login prompt, then logs in as root with the password in FILE (build-image's
 # OUTPUT/platform-*/root.password; exit 3 if refused) and runs each COMMAND (a command line for root's shell) in turn,
@@ -137,7 +138,7 @@ if [ -z "$expect" ] && [ ${#commands[@]} = 0 ]; then
 fi
 
 # under expect, on a pseudo-terminal (./boot-vm.exp)
-log=$PWD/$name.console
+log=$(cd "$(dirname "$image")" && pwd)/$name.console
 env=(BOOTVM_EXPECT="${expect:-login: }" BOOTVM_TIMEOUT="$timeout" BOOTVM_LOG="$log")
 if [ ${#commands[@]} -gt 0 ]; then
     list=$(mktemp)
