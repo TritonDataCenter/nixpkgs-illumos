@@ -11,9 +11,10 @@
 #
 # MANTA_URL, MANTA_USER and MANTA_KEY_ID (the key's MD5 fingerprint, as node-manta takes it) as for node-manta, and
 # MANTA_SUBUSER to sign as that sub-user of MANTA_USER's account, with its key (see ./README.md).
-# Directories are made as needed. A file whose remote copy has the same size is skipped, and with -k one whose
-# remote copy exists at all (a binary cache's NARs are named by their hash, and a store path's narinfo is never
-# replaced); -n only lists what would be uploaded. Exits non-zero if any upload failed (a directory Manta refuses fails the files in it).
+# Directories are made as needed. What each holds is read from its listing, a request a page, not one a file. A file
+# whose remote copy has the same size is skipped, and with -k one whose remote copy exists at all (a binary cache's
+# NARs are named by their hash, and a store path's narinfo is never replaced); -n only lists what would be uploaded.
+# Exits non-zero if any upload failed (a directory Manta refuses, or will not list, fails the files in it).
 import base64, concurrent.futures, email.utils, hashlib, http.client, json, os, socket, struct, sys, threading
 import urllib.parse
 
@@ -81,7 +82,7 @@ def sign(data):
     return base64.b64encode(raw).decode()
 
 
-def request(method, path, body=None, headers=None, length=None):
+def request(method, path, body=None, headers=None, length=None, query=""):
     date = email.utils.formatdate(usegmt=True)
     h = {
         "Date": date,
@@ -92,7 +93,7 @@ def request(method, path, body=None, headers=None, length=None):
     if length is not None:
         h["Content-Length"] = str(length)
     c = http.client.HTTPSConnection(url.hostname, url.port or 443, timeout=600)
-    c.request(method, urllib.parse.quote(path), body=body, headers=h)
+    c.request(method, urllib.parse.quote(path) + query, body=body, headers=h)
     r = c.getresponse()
     data = r.read()
     c.close()
@@ -119,10 +120,32 @@ def mkdirp(d):
         made.add(p)
 
 
-def upload(local, remote, dry, keep):
+def listing(d):
+    # what Manta has in directory d, name -> size (None for a directory), read a page at a time (MUPLOAD_LIST_LIMIT
+    # entries, at most Manta's 1024); empty if d does not exist. One request a page rather than one a file.
+    # A page after the first starts at its marker, the last name of the one before: it asks for one more and drops it.
+    limit = int(os.environ.get("MUPLOAD_LIST_LIMIT", "1024"))
+    have, marker = {}, None
+    while True:
+        n = limit + (1 if marker else 0)
+        query = "?limit=%d" % n + ("&marker=" + urllib.parse.quote(marker, safe="") if marker else "")
+        st, _, data = request("GET", d, query=query)
+        if st == 404:
+            return have
+        if st != 200:
+            raise RuntimeError("list %s: %d %s" % (d, st, data[:200]))
+        page = [json.loads(line) for line in data.decode().splitlines() if line]
+        for e in page:
+            have[e["name"]] = e.get("size") if e["type"] == "object" else None
+        if len(page) < n:
+            return have
+        marker = page[-1]["name"]
+
+
+def upload(local, remote, dry, keep, have):
     size = os.path.getsize(local)
-    st, h, _ = request("HEAD", remote)
-    if st == 200 and (keep or int(h.get("Content-Length", -1)) == size):
+    there = have.get(os.path.basename(remote), -1)
+    if there is not None and there != -1 and (keep or there == size):
         return "skip"
     if dry:
         return "would upload"
@@ -166,8 +189,18 @@ def main(argv):
             refused = [f for f in files if os.path.dirname(f) == d]
             failed += len(refused)
             files = [f for f in files if f not in refused]
+    have = {}
+    for d in sorted({os.path.dirname(f) for f in files}):
+        try:
+            have[d] = listing(remote + ("/" + d if d else ""))
+        except Exception as e:
+            print("mupload: %s" % e, file=sys.stderr)
+            refused = [f for f in files if os.path.dirname(f) == d]
+            failed += len(refused)
+            files = [f for f in files if f not in refused]
     with concurrent.futures.ThreadPoolExecutor(jobs) as ex:
-        futs = {ex.submit(upload, os.path.join(local, f), remote + "/" + f, dry, keep): f for f in files}
+        futs = {ex.submit(upload, os.path.join(local, f), remote + "/" + f, dry, keep, have[os.path.dirname(f)]): f
+                for f in files}
         for fut in concurrent.futures.as_completed(futs):
             try:
                 r = fut.result()

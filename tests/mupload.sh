@@ -2,7 +2,7 @@
 #
 # cache/mupload.py against Manta itself, in a scratch directory under DIR that it removes afterwards: files upload
 # into directories it makes, nested; what is there already with the same size is skipped, and one that changed is
-# uploaded again, unless -k keeps what is there; --ls lists what is there; -n uploads nothing; a key the agent does not hold, and a PUT Manta refuses
+# uploaded again, unless -k keeps what is there; a directory's listing is read across pages; --ls lists what is there; -n uploads nothing; a key the agent does not hold, and a PUT Manta refuses
 # (a directory of another account), fail with a non-zero exit, and the rest still upload.
 #
 # usage: mupload.sh DIR   (e.g. /USER/stor; MANTA_URL, MANTA_USER, MANTA_KEY_ID and an ssh agent holding the key, as
@@ -17,7 +17,9 @@ tmp=$(mktemp -d)
 remote=$dir/mupload-test-$$-$(date +%s)
 cleanup() {
 	# children first: Manta removes only empty directories
-	for p in "$remote/a/b/two" "$remote/one" "$remote/a/b" "$remote/a" "$remote"; do m --rm "$p" >/dev/null 2>&1; done
+	for p in "$remote/a/b/two" "$remote/a/b/three" "$remote/a/b/four" "$remote/a/b/five" "$remote/one" "$remote/a/b" "$remote/a" "$remote"; do
+		m --rm "$p" >/dev/null 2>&1
+	done
 	rm -rf "$tmp"
 }
 trap cleanup EXIT
@@ -47,6 +49,19 @@ echo "two, changed again and longer" >"$tmp/src/a/b/two"
 out=$(m -k "$tmp/src" "$remote" one a/b/two 2>&1)
 [ "$out" = "skip 2 failed 0" ] && [ "$(m -n "$tmp/src" "$remote" a/b/two 2>&1)" = "would upload 1 failed 0" ] &&
 	ok "-k keeps what is there, whatever its size" || bad "-k: $out"
+
+# what is there is read from the directory's listing, page by page (MUPLOAD_LIST_LIMIT entries a page, Manta's at most
+# 1024): with pages of one entry, a directory of three is read whole
+echo three >"$tmp/src/a/b/three"
+echo four >"$tmp/src/a/b/four"
+echo five >"$tmp/src/a/b/five"
+out=$(m "$tmp/src" "$remote" a/b/three a/b/four a/b/five 2>&1)
+[ "$out" = "uploaded 3 failed 0" ] || bad "three, four and five: $out"
+out=$(MUPLOAD_LIST_LIMIT=1 m "$tmp/src" "$remote" a/b/three a/b/four a/b/five 2>&1)
+echo "four, longer" >"$tmp/src/a/b/four"
+out2=$(MUPLOAD_LIST_LIMIT=1 m -n "$tmp/src" "$remote" a/b/three a/b/four a/b/five 2>&1)
+[ "$out" = "skip 3 failed 0" ] && [ "$out2" = "skip 2 would upload 1 failed 0" ] &&
+	ok "a directory's listing read across pages" || bad "paged listing: $out; $out2"
 
 got=$(MANTA_KEY_ID=00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff m --ls "$remote" 2>&1); rc=$?
 [ $rc -ne 0 ] && echo "$got" | grep -q "not in the ssh agent" && ok "a key the agent does not hold: refused, non-zero" ||
