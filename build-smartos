@@ -13,7 +13,8 @@
 # --illumos-proto DIR makes the image with the proto area DIR, an incremental build's (smartos-illumos.workspace), in
 # place of the illumos build's: quick, but what is in DIR is not a Nix output, and the image is stamped as dirty.
 # --proto DIR likewise with DIR a whole proto area (a checkout's built in place: illumos, illumos-extra, src;
-# smartos-live.srcWorkspace), in place of all but projects/local.
+# smartos-live.srcWorkspace), in place of all but projects/local, made by smartos-live.protoTools, which need none
+# of the Nix build's stages. With either, build-usb takes the loader's files from DIR as well.
 #
 # The build stamp says what was built (pkgs/smartos-live/identity.nix): a clean checkout's is its commit's time (a
 # release's, its release's), one with changed tracked files is dirty and stamped with the time of the build. Nix
@@ -68,7 +69,10 @@ fi
 
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
-nix-build "$pkgs" -A "$attr.builderTools" -o "$out/builder-tools-$flavor" ${nixArgs[@]+"${nixArgs[@]}"} >/dev/null
+# with a whole proto area, the tools that need nothing of the Nix build's stages, which it sets aside
+toolsAttr=builderTools
+[ "${imageArgs[0]:-}" != --proto ] || toolsAttr=protoTools
+nix-build "$pkgs" -A "$attr.$toolsAttr" -o "$out/builder-tools-$flavor" ${nixArgs[@]+"${nixArgs[@]}"} >/dev/null
 tools=$out/builder-tools-$flavor/bin
 
 if [ ${#imageArgs[@]} != 0 ]; then
@@ -82,7 +86,10 @@ stamp=$(sed -n 's/^build-image: build stamp //p' "$out/build-image.log")
 platform=$out/platform-$stamp
 [ -n "$stamp" ] && [ -d "$platform" ] || fail "build-image made no platform-STAMP in $out"
 
-"$tools/build-usb" "$platform" "$out"
+# the loader's files from the proto area too, with either
+usbArgs=()
+[ ${#imageArgs[@]} = 0 ] || usbArgs=(--proto "${imageArgs[1]}")
+"$tools/build-usb" ${usbArgs[@]+"${usbArgs[@]}"} "$platform" "$out"
 
 echo
 echo "build-smartos: $flavor, $state checkout ($checkout), build stamp $stamp"

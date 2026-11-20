@@ -190,6 +190,43 @@ in
     echo "ok   build-image; --illumos-proto and --proto refuse a directory that is not a proto area; --proto keeps local"
     touch $out
   '';
+  # the workspace for an image of a proto area outside the store (build-image --proto, --illumos-proto): smf_import
+  # and build_seeds run their scripts (smfTree's) on the mounted image, build_live keeps its own whatis step (the
+  # illumos tools' man -w, which the tree has where it looks) and takes a release's hash, and there is no proto.boot
+  # (build-usb lays it out from the proto area)
+  imageWorkspace = pkgs.runCommand "smartos-live-image-workspace-check" { } ''
+    w=${live.imageWorkspace}
+    grep -q '${live.smfTree}/tools/smf_import' $w/tools/smf_import
+    grep -q '${live.smfTree}/tools/build_seeds' $w/tools/build_seeds
+    bash -n $w/tools/smf_import && bash -n $w/tools/build_seeds && bash -n $w/tools/build_live
+    t=$w/projects/illumos/usr/src/tools/proto/root_i386-nd/opt/onbld/bin/i386
+    test -x $t/man && test -x $t/svccfg
+    grep -q 'local tools_man="$tools_proto/root_i386-nd/opt/onbld/bin/i386/man"' $w/tools/build_live
+    if grep -q 'Installing whatis databases' $w/tools/build_live; then exit 1; fi
+    grep -x '		cp_hash="$BI_ROOT_HASH"' $w/tools/build_live >/dev/null
+    test ! -e $w/proto.boot
+    echo "ok   the image workspace: their smf_import, build_seeds and man -w, a release's hash, no proto.boot"
+    touch $out
+  '';
+  # protoTools, for an image of a checkout's whole proto area: none of the src, illumos-extra and illumos stages' Nix
+  # outputs that --proto sets aside is in what it needs, and its build-image and build-usb take --proto alone
+  protoTools =
+    pkgs.runCommand "smartos-live-proto-tools-check"
+      { closure = pkgs.closureInfo { rootPaths = [ live.protoTools ]; }; }
+      ''
+        for p in ${live.livesrc} ${live.extraJoin} ${live.liveWorkspace} ${live.smfRepository} ${live.whatis} \
+          ${live.bootProto}; do
+          if grep -qx "$p" $closure/store-paths; then echo "protoTools needs $p"; exit 1; fi
+        done
+        echo "ok   protoTools needs none of the stages --proto sets aside"
+        t=${live.protoTools}/bin
+        if $t/build-image out 2>err; then exit 1; fi
+        grep -q "whole proto area only" err
+        if $t/build-usb plat out 2>err; then exit 1; fi
+        grep -q "proto area only" err
+        echo "ok   its build-image and build-usb take --proto alone"
+        touch $out
+      '';
   # uname-version on a copy of the illumos build's kernel: the version uname -v reports (bare in the kernel, besides
   # the @(#) idents) is the new one and the old one is gone, only the 257 bytes of utsname's version field change, a
   # shorter version leaves nothing of a longer one behind; a version too long and a file without utsname (ls) are

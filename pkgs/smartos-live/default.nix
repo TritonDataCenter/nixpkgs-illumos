@@ -497,19 +497,26 @@ lib.makeScope newScope (self: {
   # the tree build_live and build_boot_image run from, with what Nix made in place of the steps that need no root
   # (./workspace.nix)
   liveWorkspace = self.callPackage ./workspace.nix { };
+  # the same, for an image of a proto area outside the store (build-image --proto, --illumos-proto): build_live's
+  # steps that read the image theirs, on the mounted image
+  imageWorkspace = self.callPackage ./workspace.nix { fromImage = true; };
   # The root step: bin/build-image OUTPUT-DIR [ROOT-PASSWORD] runs build_live as `gmake live` does, with the
   # manifest, searchDirs and liveWorkspace (./build-image.sh), and the platform's build stamp from the overlay's
   # identity (libexec/stage-image, ./stage-image.sh: in the proto area build_live reads, the kernel's uname -v by
   # libexec/uname-version, motd and issue, ahead of the search directories). Needs root, lofi and UFS mounts. What their
   # PATH has from pkgsrc, md5sum and gtar, is nixpkgs' coreutils and GNU tar here.
-  buildImage =
+  buildImage = self.buildImageWith false;
+  # build-image; with protoOnly, for --proto alone, needing nothing of the src, illumos-extra and illumos stages but
+  # what the image's other steps take from them (the manifest, projects/local's)
+  buildImageWith =
+    protoOnly:
     let
       # the search directories above the illumos build's proto area, the last, which build-image may replace
       searchDirsAbove =
         assert lib.last self.searchDirs == self.illumosProto;
         lib.init self.searchDirs;
     in
-    runCommand "smartos-live-build-image" { } ''
+    runCommand "smartos-live-build-image${lib.optionalString protoOnly "-proto"}" { } ''
     mkdir -p $out/bin $out/libexec
     ln -s ${gnutar}/bin/tar $out/libexec/gtar
     cp ${./uname-version.sh} $out/libexec/uname-version
@@ -517,12 +524,14 @@ lib.makeScope newScope (self: {
     chmod +x $out/libexec/uname-version $out/libexec/stage-image
     substitute ${./build-image.sh} $out/bin/build-image \
       --subst-var-by manifest ${self.manifest}/manifest.gen \
-      --subst-var-by searchDirs "${toString searchDirsAbove}" \
+      --subst-var-by searchDirs "${if protoOnly then "" else toString searchDirsAbove}" \
       --subst-var-by illumosProto ${self.illumosProto} \
       --subst-var-by localDir ${self.localJoin} \
       --subst-var-by identity ${self.identityFile} \
       --subst-var-by flavorDigit ${self.flavorDigit} \
-      --subst-var-by workspace ${self.liveWorkspace} \
+      --subst-var-by workspace "${if protoOnly then "" else self.liveWorkspace}" \
+      --subst-var-by imageWorkspace ${self.imageWorkspace} \
+      --subst-var-by protoOnly "${lib.optionalString protoOnly "1"}" \
       --subst-var-by extraPath ${coreutils}/bin:$out/libexec
     chmod +x $out/bin/build-image
   '';
@@ -534,15 +543,27 @@ lib.makeScope newScope (self: {
   # of the zone's own for such a VM
   # (./vm-net.sh). E.g., for a boot test:
   #   build-image out && build-usb -B noimport=true out/platform-* usb && boot-vm --expect 'login:' usb/*.usb.gz
-  builderTools = runCommand "smartos-live-builder-tools" { } ''
-    mkdir -p $out/bin
-    ln -s ${self.buildImage}/bin/build-image $out/bin/build-image
-    substitute ${./build-usb.sh} $out/bin/build-usb --subst-var-by workspace ${self.liveWorkspace}
-    substitute ${./boot-vm.sh} $out/bin/boot-vm --subst-var-by pigz ${pigz}/bin/pigz \
-      --subst-var-by expect ${expect}/bin/expect --subst-var-by bootVmExp ${./boot-vm.exp}
-    cp ${./vm-net.sh} $out/bin/vm-net
-    chmod +x $out/bin/build-usb $out/bin/boot-vm $out/bin/vm-net
-  '';
+  builderTools = self.builderToolsWith false;
+  # The same for an image of a checkout's whole proto area, built in place (smartos-live.srcWorkspace), alone:
+  # build-image --proto DIR and build-usb --proto DIR, which need nothing of the Nix build's src, illumos-extra and
+  # illumos stages, so that a checkout with changes does not have them built again only to be set aside.
+  protoTools = self.builderToolsWith true;
+  builderToolsWith =
+    protoOnly:
+    runCommand "smartos-live-${if protoOnly then "proto" else "builder"}-tools" { } ''
+      mkdir -p $out/bin
+      ln -s ${self.buildImageWith protoOnly}/bin/build-image $out/bin/build-image
+      substitute ${./build-usb.sh} $out/bin/build-usb \
+        --subst-var-by workspace "${if protoOnly then "" else self.liveWorkspace}" \
+        --subst-var-by imageWorkspace ${self.imageWorkspace} \
+        --subst-var-by builder ${self.liveTools}/tools/builder/builder \
+        --subst-var-by bootManifest ${self.manifest}/boot.manifest.gen \
+        --subst-var-by protoOnly "${lib.optionalString protoOnly "1"}"
+      substitute ${./boot-vm.sh} $out/bin/boot-vm --subst-var-by pigz ${pigz}/bin/pigz \
+        --subst-var-by expect ${expect}/bin/expect --subst-var-by bootVmExp ${./boot-vm.exp}
+      cp ${./vm-net.sh} $out/bin/vm-net
+      chmod +x $out/bin/build-usb $out/bin/boot-vm $out/bin/vm-net
+    '';
 
   # usr/share/man/man.cf, the man page sections the platform's pages are in: `mancf -t -f manifest.gen`
   man-cf = runCommand "smartos-live-man-cf" { } ''

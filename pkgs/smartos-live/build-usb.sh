@@ -1,21 +1,38 @@
 #!/bin/bash
 #
-# build-usb [-c CONSOLE] [-B NAME=VALUE ...] [-f FILE=PATH ...] PLATFORM-DIR OUTPUT-DIR: a bootable USB image of a
-# platform that build-image made (PLATFORM-DIR, e.g. OUTPUT/platform-20260911T185107Z), made as smartos-live's `gmake
-# usb` makes it (tools/build_boot_image), into OUTPUT-DIR/PLATFORM.usb.gz. CONSOLE is the loader's and the system's
-# console (text, ttya, ttyb, ...; default ttya, the serial port boot-vm shows); each -B adds a loader variable, which
-# the system sees as a boot property (e.g. -B noimport=true: boot without importing a pool and without the setup
-# questions); each -f puts FILE at PATH on the key's root file system (e.g. -f answers.json=private/answers.json: the
-# setup questions' answers, which the setup then does not ask; see smartdc/lib/smartos_prompt_config.sh). Needs root,
-# lofi and pcfs mounts.
+# build-usb [--proto DIR] [-c CONSOLE] [-B NAME=VALUE ...] [-f FILE=PATH ...] PLATFORM-DIR OUTPUT-DIR: a bootable USB
+# image of a platform that build-image made (PLATFORM-DIR, e.g. OUTPUT/platform-20260911T185107Z), made as
+# smartos-live's `gmake usb` makes it (tools/build_boot_image), into OUTPUT-DIR/PLATFORM.usb.gz. CONSOLE is the loader's
+# and the system's console (text, ttya, ttyb, ...; default ttya, the serial port boot-vm shows); each -B adds a loader
+# variable, which the system sees as a boot property (e.g. -B noimport=true: boot without importing a pool and without
+# the setup questions); each -f puts FILE at PATH on the key's root file system (e.g. -f
+# answers.json=private/answers.json: the setup questions' answers, which the setup then does not ask; see
+# smartdc/lib/smartos_prompt_config.sh). Needs root, lofi and pcfs mounts.
 #
 # The tree build_boot_image runs from (@workspace@) has the loader's files (proto.boot), format_image and its
 # script, patched to take extra loader variables and to compress with nixpkgs' pigz (theirs pkgsrc's).
+#
+# --proto DIR takes the loader's files from the proto area DIR (a checkout built in place, as build-image --proto or
+# --illumos-proto took the platform from), laid out by builder from the boot manifest (@bootManifest@) as their boot
+# target lays out proto.boot, in place of the Nix build's. smartos-live.protoTools' build-usb takes --proto alone.
 
 set -euo pipefail
 export PATH=/usr/bin:/usr/sbin:/sbin
 
-usage="usage: $0 [-c CONSOLE] [-B NAME=VALUE ...] [-f FILE=PATH ...] PLATFORM-DIR OUTPUT-DIR"
+usage="usage: $0 [--proto DIR] [-c CONSOLE] [-B NAME=VALUE ...] [-f FILE=PATH ...] PLATFORM-DIR OUTPUT-DIR"
+proto=
+workspace=@workspace@
+if [ "${1:-}" = --proto ]; then
+    [ $# -ge 2 ] || { echo "$usage" >&2; exit 2; }
+    [ -f "$2/platform/i86pc/kernel/amd64/unix" ] || { echo "$0: $2 is not a proto area" >&2; exit 2; }
+    proto=$(cd "$2" && pwd)
+    workspace=@imageWorkspace@
+    shift 2
+elif [ -n "@protoOnly@" ]; then
+    echo "$0: this build-usb takes the loader's files from a proto area only (--proto DIR)" >&2
+    echo "$usage" >&2
+    exit 2
+fi
 console=ttya
 extra=
 files=()
@@ -37,16 +54,22 @@ platform=$(cd "$platform" && pwd -P)
 
 ws=$(mktemp -d -p /var/tmp)
 trap 'rm -rf "$ws"' EXIT
-for f in @workspace@/*; do
+for f in "$workspace"/*; do
     ln -s "$f" "$ws/"
 done
 mkdir "$ws/output"
 ln -s "$platform" "$ws/output/platform-latest"
-# proto.boot is copied onto pcfs, where a directory without write permission is a read-only one: as theirs, its
-# directories 0755 (the manifest's modes), not the store's 0555
-rm "$ws/proto.boot"
-cp -r @workspace@/proto.boot/ "$ws/proto.boot"
-find "$ws/proto.boot" -type d -exec chmod u+w {} +
+if [ -n "$proto" ]; then
+    mkdir -p "$ws/proto.boot/etc/version"
+    BUILDER_UNOWNED=1 @builder@ @bootManifest@ "$ws/proto.boot" "$proto" >"$ws/builder.log" ||
+        { grep -v ' OK' "$ws/builder.log" >&2; exit 1; }
+else
+    # proto.boot is copied onto pcfs, where a directory without write permission is a read-only one: as theirs, its
+    # directories 0755 (the manifest's modes), not the store's 0555
+    rm "$ws/proto.boot"
+    cp -r "$workspace"/proto.boot/ "$ws/proto.boot"
+    find "$ws/proto.boot" -type d -exec chmod u+w {} +
+fi
 # the boot files' version, etc/version/boot, is the platform's build stamp (build_live's etc/version/platform), as
 # theirs, which have one stamp a build; the illumos build's in proto.boot otherwise
 if [ -f "$platform/etc/version/platform" ]; then

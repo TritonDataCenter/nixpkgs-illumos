@@ -16,6 +16,11 @@
 # illumos, illumos-extra's packages and src, smartos-live.srcWorkspace): in place of the src, illumos-extra and
 # illumos stages, beneath projects/local's (@localDir@), which their build installs last. Stamped likewise.
 #
+# With either, build_live's steps that read the image (the SMF repository and joyent-minimal's seed, the whatis
+# databases) are theirs, run on the mounted image (@imageWorkspace@), so that the image's SMF manifests and manual pages
+# are DIR's, not the Nix build's. smartos-live.protoTools has a build-image for --proto alone, which needs nothing of
+# the Nix build's src, illumos-extra or illumos stages.
+#
 # The build stamp follows the overlay's checkout (./identity.nix, ./stage-image.sh): a clean tree's is its commit's
 # time, a dirty one's the time the image is made, its last digit the flavor's (@flavorDigit@).
 #
@@ -36,9 +41,15 @@ usage() {
 identity=@identity@
 illumos_proto=@illumosProto@
 above="@searchDirs@"
+workspace=@workspace@
+if [ -n "@protoOnly@" ] && [ "${1:-}" != --proto ]; then
+    echo "build-image: this build-image makes an image of a whole proto area only (--proto DIR)" >&2
+    usage
+fi
 case "${1:-}" in
     --illumos-proto | --proto)
         [ $# -ge 2 ] || usage
+        workspace=@imageWorkspace@
         if [ "$1" = --proto ]; then
             [ -f "$2/platform/i86pc/kernel/amd64/unix" ] || { echo "build-image: $2 is not a proto area" >&2; exit 1; }
             above="@localDir@"
@@ -80,7 +91,7 @@ fi
 # with log/ in OUTPUT-DIR
 ws=$(mktemp -d)
 trap 'rm -rf "$ws"; [ "$identity" = @identity@ ] || rm -f "$identity"' EXIT
-for f in @workspace@/*; do
+for f in "$workspace"/*; do
     [ "${f##*/}" = proto ] || ln -s "$f" "$ws/"
 done
 mkdir -p "$out/log"

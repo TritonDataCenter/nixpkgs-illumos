@@ -43,6 +43,7 @@ EOF
 cat >"$tmp/tools/bin/build-usb" <<EOF
 #!/bin/bash
 echo "build-usb \$*" >>$tmp/calls
+[ "\$1" != --proto ] || shift 2
 touch "\$2/\$(basename "\$1").usb.gz"
 EOF
 cat >"$tmp/bin/nix-build" <<EOF
@@ -147,15 +148,19 @@ fi
 # --illumos-proto DIR: an incremental build's proto area, which build-image takes in place of the store's, said
 mkdir -p "$tmp/proto"
 if run iproto --illumos-proto "$tmp/proto" "$out" &&
-    grep -qxF "build-image --illumos-proto $tmp/proto $out" "$tmp/iproto.calls" && grep -q "build-usb" "$tmp/iproto.calls" &&
+    grep -qxF "build-image --illumos-proto $tmp/proto $out" "$tmp/iproto.calls" &&
+    grep -qF "build-usb --proto $tmp/proto $out/platform-" "$tmp/iproto.calls" &&
+    grep -qF -- "-A smartos-live.builderTools " "$tmp/iproto.calls" &&
     grep -q "illumos from $tmp/proto" "$tmp/iproto.out"; then
-    ok "--illumos-proto DIR reaches build-image, and is said"
+    ok "--illumos-proto DIR reaches build-image and build-usb, with builderTools, and is said"
 else
     bad "--illumos-proto"; show iproto
 fi
 if run wproto --proto "$tmp/proto" "$out" &&
-    grep -qxF "build-image --proto $tmp/proto $out" "$tmp/wproto.calls" && grep -q "everything but local from $tmp/proto" "$tmp/wproto.out"; then
-    ok "--proto DIR reaches build-image, and is said"
+    grep -qxF "build-image --proto $tmp/proto $out" "$tmp/wproto.calls" && grep -q "everything but local from $tmp/proto" "$tmp/wproto.out" &&
+    grep -qF "build-usb --proto $tmp/proto $out/platform-" "$tmp/wproto.calls" &&
+    grep -qF -- "-A smartos-live.protoTools " "$tmp/wproto.calls"; then
+    ok "--proto DIR reaches build-image and build-usb, with protoTools, and is said"
 else
     bad "--proto"; show wproto
 fi
