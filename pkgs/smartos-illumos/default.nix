@@ -5,6 +5,7 @@
   newScope,
   applyPatches,
   fetchFromGitHub,
+  fetchurl,
   # an illumos-joyent checkout to build in place of the pinned commit: its tracked files as they are (changes
   # included, untracked files not), named by its commit (<commit>-dirty with changes) and that commit's time
   checkout ? null,
@@ -65,6 +66,18 @@ lib.makeScope newScope (self: {
 
   # A make to build make with: the gate's tools stage builds its own dmake with dmake.
   dmake-bootstrap = self.callPackage ./dmake-bootstrap.nix { };
+
+  # illumos' closed binaries, debug and non-debug, which smartos-live's configure (fetch_closed) extracts into the tree
+  # (./setup.nix): opaque binaries, taken as they are (smartos-live default.configure-build, ON_CLOSED_BINS_URL and
+  # ON_CLOSED_BINS_ND_URL)
+  closedBins = fetchurl {
+    url = "https://us-central.manta.mnx.io/Joyent_Dev/public/releng/illumos/on-closed-bins.i386.tar.bz2";
+    sha256 = "0dc5x63j2jsdks99jds484xwckxlyvvxyjvfb1icl7a8x2n2ps0q";
+  };
+  closedBinsNd = fetchurl {
+    url = "https://us-central.manta.mnx.io/Joyent_Dev/public/releng/illumos/on-closed-bins-nd.i386.tar.bz2";
+    sha256 = "0mpzsaqhih96w2zk8ly4gknqjmx4726ms9k926hacawp4kma2g6s";
+  };
 
   # illumos.sh and the pieces it names (./illumos-env.nix)
   illumosEnv = self.callPackage ./illumos-env.nix { };

@@ -120,7 +120,14 @@ stdenv.mkDerivation (
     # illumos ELF: leave it as the link-editor wrote it.
     dontFixup = true;
 
-    passthru = { inherit nativeAdjunct command perlXml; };
+    passthru = {
+      inherit
+        nativeAdjunct
+        command
+        perlXml
+        extraEnv
+        ;
+    };
 
     meta = {
       inherit description;

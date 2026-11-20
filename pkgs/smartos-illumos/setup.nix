@@ -10,20 +10,11 @@
 # (smartos-live default.configure-build, ON_CLOSED_BINS_URL and ON_CLOSED_BINS_ND_URL).
 {
   mkBldenvStep,
-  fetchurl,
+  closedBins,
+  closedBinsNd,
   src,
 }:
 
-let
-  closedBins = fetchurl {
-    url = "https://us-central.manta.mnx.io/Joyent_Dev/public/releng/illumos/on-closed-bins.i386.tar.bz2";
-    sha256 = "0dc5x63j2jsdks99jds484xwckxlyvvxyjvfb1icl7a8x2n2ps0q";
-  };
-  closedBinsNd = fetchurl {
-    url = "https://us-central.manta.mnx.io/Joyent_Dev/public/releng/illumos/on-closed-bins-nd.i386.tar.bz2";
-    sha256 = "0mpzsaqhih96w2zk8ly4gknqjmx4726ms9k926hacawp4kma2g6s";
-  };
-in
 mkBldenvStep {
   pname = "smartos-illumos-setup";
   description = "illumos-joyent's proto area after `dmake setup` (closed binaries, headers, mapfiles) and its tools";
