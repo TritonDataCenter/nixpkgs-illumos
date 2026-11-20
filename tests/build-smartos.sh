@@ -7,7 +7,8 @@
 # smartos.nix into the output directory given, image then USB image, and says what it made; --flavor debug and
 # --pkgs FILE reach nix-build; a changed tracked file still builds, and is said to be dirty; an untracked file stops
 # it before anything is built, and an ignored one does not; with --checkout DIR, DIR's state is the one told and its
-# untracked files refuse; --arg NAME EXPR, repeated, reaches nix-build; --illumos-proto DIR reaches build-image;
+# untracked files refuse; --arg NAME EXPR, repeated, reaches nix-build; --illumos-proto DIR and --proto DIR reach
+# build-image;
 # a failing build-image stops it before
 # build-usb; a
 # flavor that is not one, or a stray argument, is refused.
@@ -33,7 +34,7 @@ mkdir -p "$tmp/bin" "$tmp/tools/bin"
 cat >"$tmp/tools/bin/build-image" <<EOF
 #!/bin/bash
 echo "build-image \$*" >>$tmp/calls
-[ "\$1" != --illumos-proto ] || shift 2
+case "\$1" in --illumos-proto|--proto) shift 2 ;; esac
 [ -z "\${FAKE_IMAGE_FAIL:-}" ] || { echo "build-image: it failed" >&2; exit 1; }
 echo "build-image: build stamp 20261005T120000Z"
 mkdir -p "\$1/platform-20261005T120000Z"
@@ -151,6 +152,12 @@ if run iproto --illumos-proto "$tmp/proto" "$out" &&
     ok "--illumos-proto DIR reaches build-image, and is said"
 else
     bad "--illumos-proto"; show iproto
+fi
+if run wproto --proto "$tmp/proto" "$out" &&
+    grep -qxF "build-image --proto $tmp/proto $out" "$tmp/wproto.calls" && grep -q "everything but local from $tmp/proto" "$tmp/wproto.out"; then
+    ok "--proto DIR reaches build-image, and is said"
+else
+    bad "--proto"; show wproto
 fi
 if ! run iprotoshort --illumos-proto && [ ! -s "$tmp/iprotoshort.calls" ] && grep -q usage "$tmp/iprotoshort.out"; then
     ok "--illumos-proto without its DIR: refused"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# build-smartos [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [--arg NAME EXPR]... [--illumos-proto DIR]
-#   [OUTPUT-DIR]: a SmartOS
+# build-smartos [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [--arg NAME EXPR]...
+#   [--illumos-proto DIR | --proto DIR] [OUTPUT-DIR]: a SmartOS
 # platform and its USB image from this checkout, in one step, as root on a host that can make them (a builder-brand zone with lofi, UFS and pcfs mounts):
 #   - the builder tools of the flavor (pkgs/smartos-live: smartos-live, or smartos-live-debug) built from the package
 #     set FILE (default this checkout's smartos.nix), kept as OUTPUT-DIR/builder-tools-FLAVOR;
@@ -12,6 +12,8 @@
 # nix-build, for FILE's arguments (smartos-live's default.nix: illumos, a checkout of illumos-joyent).
 # --illumos-proto DIR makes the image with the proto area DIR, an incremental build's (smartos-illumos.workspace), in
 # place of the illumos build's: quick, but what is in DIR is not a Nix output, and the image is stamped as dirty.
+# --proto DIR likewise with DIR a whole proto area (a checkout's built in place: illumos, illumos-extra, src;
+# smartos-live.srcWorkspace), in place of all but projects/local.
 #
 # The build stamp says what was built (pkgs/smartos-live/identity.nix): a clean checkout's is its commit's time (a
 # release's, its release's), one with changed tracked files is dirty and stamped with the time of the build. Nix
@@ -23,8 +25,8 @@ set -euo pipefail
 top="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-    echo "usage: $0 [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [--arg NAME EXPR]... [--illumos-proto DIR]" \
-        "[OUTPUT-DIR]" >&2
+    echo "usage: $0 [--flavor default|debug] [--pkgs FILE] [--checkout DIR] [--arg NAME EXPR]..." \
+        "[--illumos-proto DIR | --proto DIR] [OUTPUT-DIR]" >&2
     exit 2
 }
 fail() {
@@ -39,7 +41,7 @@ while [ $# -gt 0 ]; do
         --pkgs) [ $# -ge 2 ] || usage; pkgs=$2; shift 2 ;;
         --checkout) [ $# -ge 2 ] || usage; checkout=$2; shift 2 ;;
         --arg) [ $# -ge 3 ] || usage; nixArgs+=(--arg "$2" "$3"); shift 3 ;;
-        --illumos-proto) [ $# -ge 2 ] || usage; imageArgs=(--illumos-proto "$(cd "$2" && pwd)"); shift 2 ;;
+        --illumos-proto | --proto) [ $# -ge 2 ] || usage; imageArgs=("$1" "$(cd "$2" && pwd)"); shift 2 ;;
         -*) usage ;;
         *) break ;;
     esac
@@ -69,7 +71,12 @@ out=$(cd "$out" && pwd)
 nix-build "$pkgs" -A "$attr.builderTools" -o "$out/builder-tools-$flavor" ${nixArgs[@]+"${nixArgs[@]}"} >/dev/null
 tools=$out/builder-tools-$flavor/bin
 
-[ ${#imageArgs[@]} = 0 ] || echo "build-smartos: illumos from ${imageArgs[1]}, an incremental build's proto area"
+if [ ${#imageArgs[@]} != 0 ]; then
+    case ${imageArgs[0]} in
+        --illumos-proto) echo "build-smartos: illumos from ${imageArgs[1]}, an incremental build's proto area" ;;
+        --proto) echo "build-smartos: everything but local from ${imageArgs[1]}, a checkout's own proto area" ;;
+    esac
+fi
 "$tools/build-image" ${imageArgs[@]+"${imageArgs[@]}"} "$out" 2>&1 | tee "$out/build-image.log"
 stamp=$(sed -n 's/^build-image: build stamp //p' "$out/build-image.log")
 platform=$out/platform-$stamp
@@ -79,7 +86,7 @@ platform=$out/platform-$stamp
 
 echo
 echo "build-smartos: $flavor, $state checkout ($checkout), build stamp $stamp"
-[ ${#imageArgs[@]} = 0 ] || echo "  illumos:       ${imageArgs[1]} (not a Nix output)"
+[ ${#imageArgs[@]} = 0 ] || echo "  proto area:    ${imageArgs[1]} (${imageArgs[0]#--}; not a Nix output)"
 echo "  platform:      $platform"
 echo "  USB image:     $platform.usb.gz"
 echo "  root password: $platform/root.password"

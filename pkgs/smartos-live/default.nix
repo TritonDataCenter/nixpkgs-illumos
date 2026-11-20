@@ -519,6 +519,7 @@ lib.makeScope newScope (self: {
       --subst-var-by manifest ${self.manifest}/manifest.gen \
       --subst-var-by searchDirs "${toString searchDirsAbove}" \
       --subst-var-by illumosProto ${self.illumosProto} \
+      --subst-var-by localDir ${self.localJoin} \
       --subst-var-by identity ${self.identityFile} \
       --subst-var-by flavorDigit ${self.flavorDigit} \
       --subst-var-by workspace ${self.liveWorkspace} \

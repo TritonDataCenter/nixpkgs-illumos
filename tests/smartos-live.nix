@@ -181,10 +181,13 @@ in
     echo "ok   identityFile: kind, rev, stamp, and the release's password and hash (${live.identity.kind})"
     bash -n ${live.buildImage}/bin/build-image
     if ${live.buildImage}/bin/build-image 2>err; then exit 1; fi
-    grep "usage: .* \[--illumos-proto DIR\] OUTPUT-DIR \[ROOT-PASSWORD\]" err >/dev/null
+    grep "usage: .* \[--illumos-proto DIR | --proto DIR\] OUTPUT-DIR \[ROOT-PASSWORD\]" err >/dev/null
     if ${live.buildImage}/bin/build-image --illumos-proto /nonexistent out 2>err; then exit 1; fi
     grep "not an illumos proto area" err >/dev/null
-    echo "ok   build-image, and --illumos-proto refuses a directory that is not a proto area"
+    if ${live.buildImage}/bin/build-image --proto /nonexistent out 2>err; then exit 1; fi
+    grep "not a proto area" err >/dev/null
+    grep -E -x '[[:space:]]*above="${live.localJoin}"' ${live.buildImage}/bin/build-image >/dev/null
+    echo "ok   build-image; --illumos-proto and --proto refuse a directory that is not a proto area; --proto keeps local"
     touch $out
   '';
   # uname-version on a copy of the illumos build's kernel: the version uname -v reports (bare in the kernel, besides

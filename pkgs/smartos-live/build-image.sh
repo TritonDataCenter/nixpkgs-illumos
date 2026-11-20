@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# build-image [--illumos-proto DIR] OUTPUT-DIR [ROOT-PASSWORD]: SmartOS's platform image, made as smartos-live's
-# `gmake live` makes it (tools/build_live), from what Nix built: the manifest (@manifest@), the stages' outputs as
-# builder's search directories (@searchDirs@, then the illumos build's proto area, @illumosProto@) and the workspace
-# build_live runs from (@workspace@). Needs root, lofi and UFS mounts: a zone with the builder brand (its lofi
+# build-image [--illumos-proto DIR | --proto DIR] OUTPUT-DIR [ROOT-PASSWORD]: SmartOS's platform image, made as
+# smartos-live's `gmake live` makes it (tools/build_live), from what Nix built: the manifest (@manifest@), the stages'
+# outputs as builder's search directories (@searchDirs@, then the illumos build's proto area, @illumosProto@) and the
+# workspace build_live runs from (@workspace@). Needs root, lofi and UFS mounts: a zone with the builder brand (its lofi
 # devices) and fs_allowed including ufs, or the global zone.
 #
 # --illumos-proto DIR takes the proto area DIR, an incremental build's (smartos-illumos.workspace), in place of the
@@ -11,6 +11,10 @@
 # are. What is in DIR is not a Nix output, so the image is stamped as a dirty tree's (the time it is made), with a
 # root password of its own. The manifest and the rest are the Nix build's, made against the illumos build's proto
 # area: a file DIR has that the manifest does not list is not in the image.
+#
+# --proto DIR takes DIR as a whole proto area, as smartos-live's own build has one (a checkout's, built in place:
+# illumos, illumos-extra's packages and src, smartos-live.srcWorkspace): in place of the src, illumos-extra and
+# illumos stages, beneath projects/local's (@localDir@), which their build installs last. Stamped likewise.
 #
 # The build stamp follows the overlay's checkout (./identity.nix, ./stage-image.sh): a clean tree's is its commit's
 # time, a dirty one's the time the image is made, its last digit the flavor's (@flavorDigit@).
@@ -26,20 +30,30 @@ set -euo pipefail
 export PATH=/usr/bin:/usr/sbin:/sbin:@extraPath@
 
 usage() {
-    echo "usage: $0 [--illumos-proto DIR] OUTPUT-DIR [ROOT-PASSWORD]" >&2
+    echo "usage: $0 [--illumos-proto DIR | --proto DIR] OUTPUT-DIR [ROOT-PASSWORD]" >&2
     exit 2
 }
 identity=@identity@
 illumos_proto=@illumosProto@
-if [ "${1:-}" = --illumos-proto ]; then
-    [ $# -ge 2 ] || usage
-    [ -f "$2/platform/i86pc/kernel/amd64/unix" ] || { echo "build-image: $2 is not an illumos proto area" >&2; exit 1; }
-    illumos_proto=$(cd "$2" && pwd)
-    shift 2
-    identity=$(mktemp)
-    printf 'kind=dirty\nrev=\nstamp=\npassword=\nhash=\n' >"$identity"
-    echo "build-image: illumos from $illumos_proto, stamped as dirty"
-fi
+above="@searchDirs@"
+case "${1:-}" in
+    --illumos-proto | --proto)
+        [ $# -ge 2 ] || usage
+        if [ "$1" = --proto ]; then
+            [ -f "$2/platform/i86pc/kernel/amd64/unix" ] || { echo "build-image: $2 is not a proto area" >&2; exit 1; }
+            above="@localDir@"
+            what="everything but projects/local"
+        else
+            [ -f "$2/platform/i86pc/kernel/amd64/unix" ] || { echo "build-image: $2 is not an illumos proto area" >&2; exit 1; }
+            what=illumos
+        fi
+        illumos_proto=$(cd "$2" && pwd)
+        shift 2
+        identity=$(mktemp)
+        printf 'kind=dirty\nrev=\nstamp=\npassword=\nhash=\n' >"$identity"
+        echo "build-image: $what from $illumos_proto, stamped as dirty"
+        ;;
+esac
 [ $# -ge 1 ] || usage
 out=$1
 password=${2:-}
@@ -78,4 +92,4 @@ stamp=$(ILLUMOS_PROTO=$illumos_proto stage-image "$identity" "$ws/stage" @flavor
 echo "build-image: build stamp $stamp"
 ln -s "$ws/stage/proto" "$ws/proto"
 
-"$ws/tools/build_live" -m @manifest@ -o "$out" -p "$password" "$ws/stage/stamped" @searchDirs@ "$illumos_proto"
+"$ws/tools/build_live" -m @manifest@ -o "$out" -p "$password" "$ws/stage/stamped" $above "$illumos_proto"
