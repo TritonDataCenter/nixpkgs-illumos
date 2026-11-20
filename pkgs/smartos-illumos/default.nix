@@ -66,6 +66,9 @@ lib.makeScope newScope (self: {
   # A make to build make with: the gate's tools stage builds its own dmake with dmake.
   dmake-bootstrap = self.callPackage ./dmake-bootstrap.nix { };
 
+  # illumos.sh and the pieces it names (./illumos-env.nix)
+  illumosEnv = self.callPackage ./illumos-env.nix { };
+
   # a step of the build as tools/build_illumos runs it (bldenv illumos.sh)
   mkBldenvStep = self.callPackage ./bldenv.nix { };
 
