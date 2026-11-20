@@ -2,7 +2,7 @@
 #
 # cache/mupload.py against Manta itself, in a scratch directory under DIR that it removes afterwards: files upload
 # into directories it makes, nested; what is there already with the same size is skipped, and one that changed is
-# uploaded again; --ls lists what is there; -n uploads nothing; a key the agent does not hold, and a PUT Manta refuses
+# uploaded again, unless -k keeps what is there; --ls lists what is there; -n uploads nothing; a key the agent does not hold, and a PUT Manta refuses
 # (a directory of another account), fail with a non-zero exit, and the rest still upload.
 #
 # usage: mupload.sh DIR   (e.g. /USER/stor; MANTA_URL, MANTA_USER, MANTA_KEY_ID and an ssh agent holding the key, as
@@ -42,6 +42,11 @@ out=$(m -n "$tmp/src" "$remote" one a/b/two 2>&1)
 [ "$out" = "skip 1 would upload 1 failed 0" ] && ok "-n says what would upload and uploads nothing" || bad "-n: $out"
 out=$(m "$tmp/src" "$remote" one a/b/two 2>&1)
 [ "$out" = "skip 1 uploaded 1 failed 0" ] && ok "a changed file is uploaded again" || bad "changed file: $out"
+
+echo "two, changed again and longer" >"$tmp/src/a/b/two"
+out=$(m -k "$tmp/src" "$remote" one a/b/two 2>&1)
+[ "$out" = "skip 2 failed 0" ] && [ "$(m -n "$tmp/src" "$remote" a/b/two 2>&1)" = "would upload 1 failed 0" ] &&
+	ok "-k keeps what is there, whatever its size" || bad "-k: $out"
 
 got=$(MANTA_KEY_ID=00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff m --ls "$remote" 2>&1); rc=$?
 [ $rc -ne 0 ] && echo "$got" | grep -q "not in the ssh agent" && ok "a key the agent does not hold: refused, non-zero" ||

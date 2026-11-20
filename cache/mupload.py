@@ -2,7 +2,7 @@
 # mupload.py: upload files to Manta, signing each request with an RSA key held by the ssh agent ($SSH_AUTH_SOCK).
 # Python standard library only.
 #
-#   mupload.py [-j JOBS] [-n] LOCAL_DIR /USER/public/DIR FILE...   (FILE relative to LOCAL_DIR)
+#   mupload.py [-j JOBS] [-n] [-k] LOCAL_DIR /USER/public/DIR FILE...   (FILE relative to LOCAL_DIR)
 #   mupload.py --ls /USER/public/DIR
 #   mupload.py --rm /USER/public/PATH                               (an object, or an empty directory)
 #
@@ -11,8 +11,9 @@
 #
 # MANTA_URL, MANTA_USER and MANTA_KEY_ID (the key's MD5 fingerprint, as node-manta takes it) as for node-manta, and
 # MANTA_SUBUSER to sign as that sub-user of MANTA_USER's account, with its key (see ./README.md).
-# Directories are made as needed. A file whose remote copy has the same size is skipped; -n only lists what would
-# be uploaded. Exits non-zero if any upload failed (a directory Manta refuses fails the files in it).
+# Directories are made as needed. A file whose remote copy has the same size is skipped, and with -k one whose
+# remote copy exists at all (a binary cache's NARs are named by their hash, and a store path's narinfo is never
+# replaced); -n only lists what would be uploaded. Exits non-zero if any upload failed (a directory Manta refuses fails the files in it).
 import base64, concurrent.futures, email.utils, hashlib, http.client, json, os, socket, struct, sys, threading
 import urllib.parse
 
@@ -118,10 +119,10 @@ def mkdirp(d):
         made.add(p)
 
 
-def upload(local, remote, dry):
+def upload(local, remote, dry, keep):
     size = os.path.getsize(local)
     st, h, _ = request("HEAD", remote)
-    if st == 200 and int(h.get("Content-Length", -1)) == size:
+    if st == 200 and (keep or int(h.get("Content-Length", -1)) == size):
         return "skip"
     if dry:
         return "would upload"
@@ -145,12 +146,14 @@ def main(argv):
             e = json.loads(line)
             print(e["name"] + ("/" if e["type"] == "directory" else ""))
         return 0 if st == 200 else 1
-    jobs, dry = 8, False
+    jobs, dry, keep = 8, False, False
     while argv[0].startswith("-"):
         if argv[0] == "-j":
             jobs, argv = int(argv[1]), argv[2:]
         elif argv[0] == "-n":
             dry, argv = True, argv[1:]
+        elif argv[0] == "-k":
+            keep, argv = True, argv[1:]
         else:
             sys.exit("mupload: unknown option " + argv[0])
     local, remote, files = argv[0], argv[1].rstrip("/"), argv[2:]
@@ -164,7 +167,7 @@ def main(argv):
             failed += len(refused)
             files = [f for f in files if f not in refused]
     with concurrent.futures.ThreadPoolExecutor(jobs) as ex:
-        futs = {ex.submit(upload, os.path.join(local, f), remote + "/" + f, dry): f for f in files}
+        futs = {ex.submit(upload, os.path.join(local, f), remote + "/" + f, dry, keep): f for f in files}
         for fut in concurrent.futures.as_completed(futs):
             try:
                 r = fut.result()

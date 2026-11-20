@@ -3,7 +3,8 @@
 # cache/push.sh end to end, into a scratch directory under DIR on Manta that it removes afterwards: a derivation made
 # for the test (built by /bin/sh, so its build closure is itself alone), pushed with a throwaway signing key, is
 # substituted from the cache's https URL into an empty store that trusts that key alone (and refused by one that
-# trusts another key); everything its build used is in the cache too; and a second push uploads nothing.
+# trusts another key); everything its build used is in the cache too; a second push uploads nothing; and a narinfo
+# already in the cache, though not the one push.sh would write, is kept.
 #
 # usage: cache-push.sh DIR   (DIR world-readable, e.g. /USER/public; on an illumos host with Nix, as root; MANTA_URL,
 #                              MANTA_USER, MANTA_KEY_ID and an agent holding the key; python3 and curl on PATH)
@@ -77,6 +78,19 @@ if CACHE_SECRET_KEY=$tmp/key.sec CACHE_DIR=$tmp/cache bash "$top/cache/push.sh" 
 	ok "a second push succeeds and uploads nothing"
 else
 	bad "a second push: $(tail -3 "$tmp/push2.log")"
+fi
+
+# a narinfo already in the cache that is not the one push.sh would write (another push recorded the path's CA, or
+# not): kept, not replaced (Manta refuses a sub-user's replacing what the account uploaded)
+info=$(basename "$out" | cut -c1-32).narinfo
+mkdir -p "$tmp/other"
+{ cat "$tmp/cache/$info"; echo "Deriver: other-push.drv"; } >"$tmp/other/$info"
+python3 -I "$top/cache/mupload.py" "$tmp/other" "$remote" "$info" >/dev/null 2>&1
+if CACHE_SECRET_KEY=$tmp/key.sec CACHE_DIR=$tmp/cache bash "$top/cache/push.sh" "$remote" "$tmp/t.nix" >"$tmp/push3.log" 2>&1 &&
+	! grep -q "uploaded" "$tmp/push3.log" && curl -sf "$url/$info" | grep -q "^Deriver: other-push.drv$"; then
+	ok "a narinfo already in the cache is kept, whatever its size"
+else
+	bad "a different narinfo in the cache: $(tail -3 "$tmp/push3.log"); remote: $(curl -sf "$url/$info" | tail -2)"
 fi
 
 echo "$pass passed, $fail failed"
