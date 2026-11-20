@@ -218,6 +218,9 @@ lib.makeScope newScope (self: {
 
   # the src stage (0-livesrc-stamp): src and man
   livesrc = smartos-extra.finishPackage (self.callPackage ./livesrc.nix { });
+  # bin/smartos-src-workspace: a checkout's src built in place, as a developer builds it incrementally
+  # (./src-workspace.nix)
+  srcWorkspace = self.callPackage ./src-workspace.nix { };
 
   # the devpro stage (0-devpro-stamp): the C++ runtime libraries kept prebuilt in the tree
   devpro = self.callPackage ./devpro.nix { };
