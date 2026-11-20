@@ -163,7 +163,7 @@ git init -q -b main "$tmp/other"
 echo x >"$tmp/other/f" && git -C "$tmp/other" add f && git -C "$tmp/other" commit -q -m start
 echo changed >>smartos.nix
 if run checkout --checkout "$tmp/other" "$out" && grep -q "build-usb" "$tmp/checkout.calls" &&
-    grep -q "clean checkout" "$tmp/checkout.out"; then
+    grep -qF "clean checkout ($tmp/other)" "$tmp/checkout.out"; then
     ok "--checkout DIR: DIR's state is told (clean), not the overlay's (dirty)"
 else
     bad "--checkout DIR's state"; show checkout

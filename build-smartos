@@ -78,7 +78,7 @@ platform=$out/platform-$stamp
 "$tools/build-usb" "$platform" "$out"
 
 echo
-echo "build-smartos: $flavor, $state checkout, build stamp $stamp"
+echo "build-smartos: $flavor, $state checkout ($checkout), build stamp $stamp"
 [ ${#imageArgs[@]} = 0 ] || echo "  illumos:       ${imageArgs[1]} (not a Nix output)"
 echo "  platform:      $platform"
 echo "  USB image:     $platform.usb.gz"
