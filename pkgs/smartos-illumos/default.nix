@@ -96,4 +96,8 @@ lib.makeScope newScope (self: {
 
   # the nightly build: the proto area
   nightly = self.callPackage ./nightly.nix { };
+
+  # bin/illumos-workspace: a checkout built in place with the build's environment, as a developer builds it
+  # incrementally (./workspace.nix)
+  workspace = self.callPackage ./workspace.nix { };
 })
