@@ -1,0 +1,34 @@
+# Fill the binary cache on Manta from each push to the branches below, on the CI zone's runner (ci/README.md):
+# ci/fill-cache.sh builds what the cache serves and pushes it. Only pushes and manual runs: no pull_request trigger,
+# so code from a fork never runs where the cache's keys are. The runner's only label is nixpkgs-illumos-cache.
+# Steps are plain run: steps (the runner has no node for JavaScript actions such as actions/checkout).
+name: cache
+
+on:
+  push:
+    branches:
+      - main
+      - wip/release-20261023
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache
+  cancel-in-progress: false
+
+jobs:
+  fill:
+    runs-on: [nixpkgs-illumos-cache]
+    timeout-minutes: 720
+    steps:
+      - name: Check out
+        run: |
+          rm -rf src
+          git init -q src
+          git -C src fetch -q --depth 1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_SHA"
+          git -C src checkout -q FETCH_HEAD
+          git -C src log --oneline -1
+      - name: Build and push
+        run: bash src/ci/fill-cache.sh
